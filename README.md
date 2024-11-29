@@ -3,9 +3,7 @@ NotIST - 2025 SIRS Project of Masters Degree in Computer Science
 
 Authors:
 
-André Roque (andre.tita217@gmail.com) - 103074
-Artur Ferreira - 102482
-Jade Le Roux - 112474
+André Roque (andre.tita217@gmail.com) - 103074 | Artur Ferreira - 102482 | Jade Le Roux - 112474
 
 # Project
 
