@@ -1,6 +1,14 @@
 # SIRS_Proj
 NotIST - 2025 SIRS Project of Masters Degree in Computer Science
 
+Authors:
+
+André Roque (andre.tita217@gmail.com) - 103074
+Artur Ferreira - 102482
+Jade Le Roux - 112474
+
+# Project
+
 NotIST is a note application that allows users to create personal notes and shareable notes. It’s a local first application, meaning that notes are first stored in the local device, and are periodically synced to an external server for backups. A new functionality of NotIST is its ability to share notes with other users. NotIST is built to ensure privacy. Notes, even the ones stored locally, are always encrypted in such a way that only its owner can decrypt them. Shared notes are also encrypted, but any contributor of the notes can decrypt them. 
 
 The data structure of any note is a JSON document with the following structure:
