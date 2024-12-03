@@ -1,6 +1,9 @@
+package A20.database;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import A20.classes.Note;
 
 public class NoteDAO {
     public void addNote(Note note) throws SQLException {

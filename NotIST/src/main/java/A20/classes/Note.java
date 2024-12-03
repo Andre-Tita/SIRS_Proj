@@ -33,8 +33,8 @@ public class Note {
 
     @Override
     public String toString() {
-        return "Note{" + "id=" + id +
-            ", ownerId=" + ownerId +
+        return "Note{" + "id=" + n_id +
+            ", ownerId=" + owner_id +
             ", title='" + title + '\'' +
             ", content='" + content + '\'' +
             ", createdDate=" + createdDate +

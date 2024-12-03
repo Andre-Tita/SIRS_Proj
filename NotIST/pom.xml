@@ -41,9 +41,9 @@
                         </goals>
                     </execution>
                 </executions>
-                <!-- ### Change the configuration !!! -->
                 <configuration>
-                    <mainClass><UserDAO class="java"></UserDAO></mainClass>
+                    <!-- Specify the main class to run -->
+                    <mainClass>com.example.UserDAO</mainClass>
                 </configuration>
             </plugin>
         </plugins>

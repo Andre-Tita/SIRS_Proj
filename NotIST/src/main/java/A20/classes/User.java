@@ -28,7 +28,7 @@ public class User {
         this.password = password;
     }
 
-    public setPublicKey(String publicKey) {
+    public void setPublicKey(String publicKey) {
         this.publicKey = publicKey;
     }
 
@@ -59,5 +59,17 @@ public class User {
             if(this.notes.contains((Integer) note))
                 this.notes.remove(note);
         }
+    }
+
+    public List<Integer> getNotes() {
+        return this.notes;
+    }
+
+    @Override
+    public String toString() {
+        return "User { " + "id= " + this.u_id +
+        ", Username: " + this.username +
+        ", Password: " + this.password +
+        ", Public Key: " + this.publicKey;
     }
 }

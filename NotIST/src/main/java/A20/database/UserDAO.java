@@ -1,9 +1,8 @@
 package A20.database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import A20.classes.User;
 
 public class UserDAO {
@@ -13,8 +12,8 @@ public class UserDAO {
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, user.getUsername());
-            stmt.setString(2, user.getEmail());
-            stmt.setString(3, user.getPassword());
+            stmt.setString(2, user.getPassword());
+            stmt.setString(3, user.getPublicKey());
             stmt.executeUpdate();
         }
     }
@@ -25,12 +24,13 @@ public class UserDAO {
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, username);
             ResultSet rs = stmt.executeQuery();
+            // # CHANGE !!
             if (rs.next()) {
                 return new User(
                     rs.getInt("user_id"),
                     rs.getString("username"),
-                    rs.getString("email"),
-                    rs.getString("password")
+                    rs.getString("password"),
+                    rs.getString("publicKey")
                 );
             }
         }
