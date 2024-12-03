@@ -3,7 +3,6 @@ package A20.classes;
 import java.util.ArrayList;
 import java.util.List;
 
-// # SIMPLIFIED
 public class User {
     private int u_id;
     private String username;
