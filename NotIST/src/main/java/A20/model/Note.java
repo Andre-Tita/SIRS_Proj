@@ -1,4 +1,4 @@
-package A20.classes;
+package A20.model;
 
 import java.time.LocalDateTime;
 

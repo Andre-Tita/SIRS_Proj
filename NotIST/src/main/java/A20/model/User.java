@@ -1,4 +1,4 @@
-package A20.classes;
+package A20.model;
 
 import java.util.ArrayList;
 import java.util.List;

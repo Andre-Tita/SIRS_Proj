@@ -3,7 +3,8 @@ package A20.database;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import A20.classes.User;
+
+import A20.model.User;
 
 public class UserDAO {
 
@@ -24,7 +25,6 @@ public class UserDAO {
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, username);
             ResultSet rs = stmt.executeQuery();
-            // # CHANGE !!
             if (rs.next()) {
                 return new User(
                     rs.getInt("user_id"),
