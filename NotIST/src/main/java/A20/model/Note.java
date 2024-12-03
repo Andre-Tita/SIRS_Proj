@@ -1,6 +1,7 @@
 package A20.model;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class Note {
     private int n_id;
@@ -8,14 +9,14 @@ public class Note {
     private int version;
     private String title;
     private String content;
-    private LocalDateTime createdDate;
+    private String createdDate;
 
     public Note(int id, int owner_id, String title, String content) {
         this.n_id = id;
         this.owner_id = owner_id;
         this.title = title;
         this.content = content;
-        this.createdDate = LocalDateTime.now();
+        this.createdDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")); // Timestamp
     }
 
     // Setters
