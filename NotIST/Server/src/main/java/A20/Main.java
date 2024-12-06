@@ -1,9 +1,9 @@
 package A20;
 
 import A20.model.Note;
-import A20.database.NoteDAO;
-import A20.database.UserDAO;
 import A20.model.User;
+import A20.repository.NoteDAO;
+import A20.repository.UserDAO;
 
 import java.sql.SQLException;
 import java.util.List;

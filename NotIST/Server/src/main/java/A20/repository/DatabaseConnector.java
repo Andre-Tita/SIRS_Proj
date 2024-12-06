@@ -1,4 +1,4 @@
-package A20.database;
+package A20.repository;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
