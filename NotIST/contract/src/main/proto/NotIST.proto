@@ -27,8 +27,19 @@ message LoginResponse {
     int32 ack = 1;
 }
 
+// logout operation
+
+message LogoutRequest {
+    // empty
+}
+
+message LogoutResponse {
+    int32 ack = 1;
+}
+
 // service
 service NotIST {
-    rpc SignUp(SignUpRequest) returns (SignUpResponse);
-    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc signup(SignUpRequest) returns (SignUpResponse);
+    rpc login(LoginRequest) returns (LoginResponse);
+    rpc logout(LogoutRequest) returns (LogoutResponse);
 }
