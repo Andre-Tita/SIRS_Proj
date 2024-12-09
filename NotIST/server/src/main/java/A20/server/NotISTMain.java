@@ -8,9 +8,6 @@ import io.grpc.ServerBuilder;
 import java.io.IOException;
 
 public class NotISTMain {
-    
-    private NotISTGrpc.NotISTBlockingStub stub;
-
     public static void main(String[] args) throws IOException, InterruptedException{
         final int port = 50052;
 		final BindableService impl = new NotISTServiceImpl();

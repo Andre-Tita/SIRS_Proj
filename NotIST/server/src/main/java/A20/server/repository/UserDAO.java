@@ -9,7 +9,7 @@ import A20.server.model.User;
 public class UserDAO {
 
     public void addUser(User user) throws SQLException {
-        String query = "INSERT INTO Users (username, password, publicKey) VALUES (?, ?, ?)";
+        String query = "INSERT INTO users (username, password_hash, public_key) VALUES (?, ?, ?)";
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, user.getUsername());
@@ -20,7 +20,7 @@ public class UserDAO {
     }
 
     public User getUserByUsername(String username) throws SQLException {
-        String query = "SELECT * FROM Users WHERE username = ?";
+        String query = "SELECT * FROM users WHERE username = ?";
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, username);
@@ -29,8 +29,8 @@ public class UserDAO {
                 return new User(
                     rs.getInt("user_id"),
                     rs.getString("username"),
-                    rs.getString("password"),
-                    rs.getString("publicKey")
+                    rs.getString("password_hash"),
+                    rs.getString("public_key")
                 );
             }
         }
@@ -47,8 +47,8 @@ public class UserDAO {
                 users.add(new User(
                     rs.getInt("user_id"),
                     rs.getString("username"),
-                    rs.getString("email"),
-                    rs.getString("password")
+                    rs.getString("password_hash"),
+                    rs.getString("public_key")
                 ));
             }
         }

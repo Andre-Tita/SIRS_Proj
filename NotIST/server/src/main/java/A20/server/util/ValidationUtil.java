@@ -1,4 +1,4 @@
-package A20.util;
+package A20.server.util;
 
 public class ValidationUtil {
     
