@@ -3,8 +3,7 @@ CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    public_key VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP
+    public_key VARCHAR(255) NOT NULL
 );
 
 -- Create Notes Table

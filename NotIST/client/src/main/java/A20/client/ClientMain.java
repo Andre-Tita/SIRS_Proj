@@ -11,6 +11,7 @@ public class ClientMain {
 	private static final String LOGIN = "login";                // login (user alr exists)
 	private static final String SIGNUP = "signup";              // signup (user is new)
 	private static final String LOGOUT = "logout";              // logout
+    private static final String EXIT = "exit";                  // exit the client app
 	private static final String NEW_NOTE = "nnote";             // create a note
 	private static final String READ_NOTE = "rnote";            // read a note
 	private static final String SEE_NOTES = "snotes";           // show the notes and note's ids that the user has access
@@ -67,16 +68,20 @@ public class ClientMain {
 
                 case LOGIN:
                     if (split.length == 3) {
-                        if(this.login(split[1], split[2]))
+                        if(this.login(split[1], split[2])) {
                             System.out.println("Success, logged in.");
+                            loggedin = true;
+                        }
                         else { debug("Error, username or password invalid."); }
                     } else { debug(DEFAULT); }
                     break;
 
                 case SIGNUP:
                     if (split.length == 3) {
-                        if(this.signup(split[1], split[2]))
+                        if(this.signup(split[1], split[2])) {
                             System.out.println("Success, signed up.");
+                            loggedin = true;
+                        }
                         else { debug("Error, username already in use."); }
                     } else { debug(DEFAULT); }
                     break;
@@ -86,10 +91,16 @@ public class ClientMain {
                         if (split.length == 1) {
                             if(this.logout()) {
                                 System.out.println("Logged out with success. Leaving...");
-                                exit = true;
+                                loggedin = false;
                             } else { debug("Unexpected error."); }
                         } else { debug(DEFAULT); }
                     } else { debug(NOT_LOGGEDIN); }
+                    break;
+
+                case EXIT:
+                    if(loggedin)
+                        this.logout();
+                    exit = true;
                     break;
 				
 				// #TODO
@@ -132,13 +143,15 @@ public class ClientMain {
                         "READ NOTE: rnote [title]\n" +
                         "SEE NOTES: snotes\n" +
                         "MY NOTES: mnotes\n" +
-                        "GRANT ACCESS: gaccess [other_username] [note_title]\n");
+                        "GRANT ACCESS: gaccess [other_username] [note_title]\n"+
+                        "EXIT: exit\n");
                         break;
                     } else { 
-                        System.out.println("LOGIN: login [username] [password] \n" +
-                        "SIGNUP: signup [username] [password] \n");
+                        System.out.println("LOGIN: login [username] [password]\n" +
+                        "SIGNUP: signup [username] [password]\n" +
+                        "EXIT: exit\n");
+                        break;
                     }
-                    
 
                 default :
                     debug(DEFAULT);

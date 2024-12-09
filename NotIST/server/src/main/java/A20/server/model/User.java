@@ -1,4 +1,4 @@
-package A20.model;
+package A20.server.model;
 
 import java.util.ArrayList;
 import java.util.List;

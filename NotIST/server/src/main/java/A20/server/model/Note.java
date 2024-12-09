@@ -1,4 +1,4 @@
-package A20.model;
+package A20.server.model;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;

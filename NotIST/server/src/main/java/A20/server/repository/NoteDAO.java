@@ -1,9 +1,9 @@
-package A20.repository;
+package A20.server.repository;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import A20.model.Note;
+import A20.server.model.Note;
 
 public class NoteDAO {
     public void addNote(Note note) throws SQLException {

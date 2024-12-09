@@ -1,15 +1,15 @@
-package A20.repository;
+package A20.server.repository;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import A20.model.User;
+import A20.server.model.User;
 
 public class UserDAO {
 
     public void addUser(User user) throws SQLException {
-        String query = "INSERT INTO Users (username, email, password) VALUES (?, ?, ?)";
+        String query = "INSERT INTO Users (username, password, publicKey) VALUES (?, ?, ?)";
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, user.getUsername());
