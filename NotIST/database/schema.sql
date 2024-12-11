@@ -1,3 +1,8 @@
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS notes CASCADE;
+DROP TABLE IF EXISTS access_logs;
+DROP TABLE IF EXISTS encryption_keys;
+
 -- Create Users Table
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
@@ -12,9 +17,9 @@ CREATE TABLE notes (
     owner_id INT REFERENCES users(user_id),
     version INT,
     title VARCHAR(255),
-    content TEXT,
+    content VARCHAR(255),                               -- # It was TEXT before
     is_encrypted BOOLEAN DEFAULT TRUE,                  -- # Delete on final delievery (everything will be encrypted)
-    created_at TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
 );
 
 -- Create Access Logs Table, so we know which user has access to which note and what type of access
@@ -24,7 +29,7 @@ CREATE TABLE access_logs (
     note_id INT REFERENCES notes(note_id),
     owner_id INT,
     user_role VARCHAR(50) NOT NULL,
-    action_timestamp TIMESTAMP
+    action_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Encryption Keys Table (Optional) ??

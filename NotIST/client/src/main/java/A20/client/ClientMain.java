@@ -4,7 +4,12 @@ import A20.*;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
+
+import javax.print.DocFlavor.STRING;
 
 public class ClientMain {
 	private static final String SPACE = " ";
@@ -25,6 +30,8 @@ public class ClientMain {
 	private static final String DEFAULT = "Invalid command or format.\nTry \"help\" to see all the available commands and it's usage.";
 	NotISTGrpc.NotISTBlockingStub stub;
     ManagedChannel channel;
+
+    private String username;
 
     public static void main(String[] args) {
 		// Main loop
@@ -50,8 +57,69 @@ public class ClientMain {
         // A Channel should be shutdown before stopping the process.
 		channel.shutdownNow();
     }
+    
+	public Boolean login(String username, String password) {
+        LoginRequest request = LoginRequest.newBuilder().setUsername(username).setPassword(password).build();
+        LoginResponse response = stub.login(request);
+        return response.getAck() != 0;
+    }
 
-	public void main_loop() {
+    public Boolean signup(String username, String new_password) {
+        SignUpRequest request = SignUpRequest.newBuilder().setUsername(username).setPassword(new_password).build();
+        SignUpResponse response = stub.signup(request);
+        return response.getAck() != 0;
+    }
+
+    public Boolean logout() {
+        LogoutRequest request = LogoutRequest.newBuilder().build();
+        LogoutResponse response = stub.logout(request);
+        return response.getAck() != 0;
+    }
+    
+    public Boolean nnote(String title, String content) {
+        NNoteRequest request = NNoteRequest.newBuilder().setUsername(this.username).setTitle(title).setContent(content).build();
+        NNoteResponse response = stub.nnote(request);
+        return response.getAck() != 0;
+    }
+
+    public List<String> mnotes() {
+        List<String> my_notes = new ArrayList<>();
+        MNoteRequest request = MNoteRequest.newBuilder().setUsername(this.username).build();
+        MNoteResponse response = stub.mnote(request);
+        switch (response.getAck()) {
+            case 0:
+                System.err.println("ERROR: User doesn't exists.");
+                break;
+        
+            case -1:
+            System.err.println("ERROR: Server SQL error.");
+                break;
+            case 1:
+                my_notes = response.getNoteTitlesList();
+                break;
+            default:
+                System.out.println("Unknown error.");
+                break;
+
+        }
+
+        return my_notes;
+    }
+    
+    // #TODO
+    public Boolean rnote(String title) {
+        return true;
+    }
+
+    public Boolean snotes() {
+        return true;
+    }
+
+    public Boolean gaccess() {
+        return true;
+    }
+
+    public void main_loop() {
         this.initComms();
 
         Scanner scanner = new Scanner(System.in);
@@ -71,6 +139,7 @@ public class ClientMain {
                         if(this.login(split[1], split[2])) {
                             System.out.println("Success, logged in.");
                             loggedin = true;
+                            this.username = split[1];
                         }
                         else { debug("Error, username or password invalid."); }
                     } else { debug(DEFAULT); }
@@ -81,6 +150,7 @@ public class ClientMain {
                         if(this.signup(split[1], split[2])) {
                             System.out.println("Success, signed up.");
                             loggedin = true;
+                            this.username = split[1];
                         }
                         else { debug("Error, username already in use."); }
                     } else { debug(DEFAULT); }
@@ -97,32 +167,34 @@ public class ClientMain {
                     } else { debug(NOT_LOGGEDIN); }
                     break;
 
+                case NEW_NOTE:
+                    if(loggedin) {
+                        this.nnote(split [1], split[2]);        // #CHANGE !!! 
+                    } else { debug(NOT_LOGGEDIN); }
+                    break;
+
+                case MY_NOTES:
+                    if(loggedin) {
+                        List<String> my_notes = this.mnotes();
+                        System.out.println("Your notes:\n" + my_notes);
+                    } else { debug(NOT_LOGGEDIN); }
+                    break;
+                
                 case EXIT:
                     if(loggedin)
                         this.logout();
                     exit = true;
                     break;
-				
-				// #TODO
-                case NEW_NOTE:
-                    if(loggedin) {
+                
 
-                    } else { debug(NOT_LOGGEDIN); }
-                    break;
-
+                // #TODO
                 case READ_NOTE:
                     if(loggedin) {
-
+                        
                     } else { debug(NOT_LOGGEDIN); }
                     break;
 
                 case SEE_NOTES:
-                    if(loggedin) {
-
-                    } else { debug(NOT_LOGGEDIN); }
-                    break;
-
-                case MY_NOTES:
                     if(loggedin) {
 
                     } else { debug(NOT_LOGGEDIN); }
@@ -139,7 +211,7 @@ public class ClientMain {
                         // #TODO
                         System.out.println("Available commands:\n" +
                         "LOGOUT: logout\n" +
-                        "NEW NOTE: nnote\n" +
+                        "NEW NOTE: nnote [title] [] [content]\n" +
                         "READ NOTE: rnote [title]\n" +
                         "SEE NOTES: snotes\n" +
                         "MY NOTES: mnotes\n" +
@@ -160,44 +232,5 @@ public class ClientMain {
         }
 
         this.endComms();
-    }
-
-	public Boolean login(String username, String password) {
-        LoginRequest request = LoginRequest.newBuilder().setUsername(username).setPassword(password).build();
-        LoginResponse response = stub.login(request);
-        return response.getAck() != 0;
-    }
-
-    public Boolean signup(String username, String new_password) {
-        SignUpRequest request = SignUpRequest.newBuilder().setUsername(username).setPassword(new_password).build();
-        SignUpResponse response = stub.signup(request);
-        return response.getAck() != 0;
-    }
-
-    public Boolean logout() {
-        LogoutRequest request = LogoutRequest.newBuilder().build();
-        LogoutResponse response = stub.logout(request);
-        return response.getAck() != 0;
-    }
-
-    // #TODO
-    public Boolean nnote() {
-        return true;
-    }
-
-    public Boolean rnote(String title) {
-        return true;
-    }
-
-    public Boolean snotes() {
-        return true;
-    }
-
-    public Boolean mnotes() {
-        return true;
-    }
-
-    public Boolean gaccess() {
-        return true;
     }
 }

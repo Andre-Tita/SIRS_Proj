@@ -8,51 +8,51 @@ public class User {
     private String username;
     private String publicKey;
     private String password;
-    private List<Integer> notes;
+    //private List<Integer> notes;
 
-    public User(int id, String username, String publicKey, String password) {
+    // Firstly created
+    public User(String username, String password, String publicKey) {
+        this.username = username;
+        this.publicKey = publicKey;
+        this.password = password;
+        //this.notes = new ArrayList<>();
+    }
+
+    // To receive from db
+    public User(int id, String username, String password, String publicKey) {
         this.u_id = id;
         this.username = username;
         this.publicKey = publicKey;
         this.password = password;
-        this.notes = new ArrayList<>();
+        //this.notes = new ArrayList<>();
     }
 
     // Setters
+    public void setUsername(String username) { this.username = username; }
 
-    public void setUsername(String username) {
-        this.username = username;
-    }
+    public void setPassword(String password) { this.password = password; }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setPublicKey(String publicKey) {
-        this.publicKey = publicKey;
-    }
+    public void setPublicKey(String publicKey) { this.publicKey = publicKey; }
 
     // Getters
 
-    public String getUsername () {
-        return this.username;
-    }
+    public int getUserId() { return this.u_id; }
 
-    public String getPassword () {
-        return this.password;
-    }
+    public String getUsername () { return this.username; }
 
-    public String getPublicKey () {
-        return this.publicKey;
-    }
+    public String getPassword () { return this.password; }
+
+    public String getPublicKey () { return this.publicKey; }
 
     // Notes op's
+    /* 
     public void addNotes(int... newNotes) {
         for (int note : newNotes) {
             if (!this.notes.contains(note))
                 this.notes.add(note);
         }
     }
+    
     
     public void removeNotes(int... notesToRemove) {
         for (int note : notesToRemove) {
@@ -63,7 +63,8 @@ public class User {
 
     public List<Integer> getNotes() {
         return this.notes;
-    }
+    } 
+    */
 
     @Override
     public String toString() {

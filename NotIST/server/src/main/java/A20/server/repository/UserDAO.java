@@ -19,12 +19,17 @@ public class UserDAO {
         }
     }
 
-    public User getUserByUsername(String username) throws SQLException {
-        String query = "SELECT * FROM users WHERE username = ?";
+    public User getUserByUsernameAndPass(String username, String password_hash) throws SQLException {
+        // #Use hashed password comparison here.
+        String query = "SELECT * FROM users WHERE username = ? AND password_hash = ?";
+        
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, username);
+            stmt.setString(2, password_hash);
+            
             ResultSet rs = stmt.executeQuery();
+
             if (rs.next()) {
                 return new User(
                     rs.getInt("user_id"),
@@ -37,9 +42,34 @@ public class UserDAO {
         return null;
     }
 
+    public User getUserByUsername(String username) throws SQLException {
+        // #Use hashed password comparison here.
+        String query = "SELECT * FROM users WHERE username = ?";
+        
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, username);
+            
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return new User(
+                    rs.getInt("user_id"),
+                    rs.getString("username"),
+                    "",
+                    ""
+                );
+            }
+        }
+        return null;
+    }
+
     public List<User> getAllUsers() throws SQLException {
+        
         String query = "SELECT * FROM Users";
+        
         List<User> users = new ArrayList<>();
+        
         try (Connection conn = DatabaseConnector.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
@@ -47,8 +77,8 @@ public class UserDAO {
                 users.add(new User(
                     rs.getInt("user_id"),
                     rs.getString("username"),
-                    rs.getString("password_hash"),
-                    rs.getString("public_key")
+                    rs.getString("password_hash"),          // # maybe not return this
+                    rs.getString("public_key")              // # maybe not return this
                 ));
             }
         }
