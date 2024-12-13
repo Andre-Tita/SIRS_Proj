@@ -27,11 +27,17 @@ public class ClientMain {
     private final String port = "50052";
 
 	private static final String NOT_LOGGEDIN = "You are not logged in. Type \"help\" to see all the available commands and it's usage.";
-	private static final String DEFAULT = "Invalid command or format.\nTry \"help\" to see all the available commands and it's usage.";
-	NotISTGrpc.NotISTBlockingStub stub;
+    private static final String ALR_LOGGEDIN = "You are already logged in. Type \"help\" to see all the available commands and it's usage.";
+	private static final String FORMAT_ERROR = "Invalid command or format.\nTry \"help\" to see all the available commands and it's usage.";
+	private static final String USER_NOT_EXIST = "ERROR: Your username/user doesn't exist.";
+    private static final String SQL_ERROR = "ERROR: Server SQL error.";
+    private static final String UNKNOWN = "Unknown error.";
+    
+    NotISTGrpc.NotISTBlockingStub stub;
     ManagedChannel channel;
 
     private String username;
+    private boolean loggedin;
 
     public static void main(String[] args) {
 		// Main loop
@@ -58,73 +64,209 @@ public class ClientMain {
 		channel.shutdownNow();
     }
     
-	public Boolean login(String username, String password) {
+	public void login(String username, String password) {
         LoginRequest request = LoginRequest.newBuilder().setUsername(username).setPassword(password).build();
         LoginResponse response = stub.login(request);
-        return response.getAck() != 0;
+        switch (response.getAck()) {
+            case 0:
+                System.out.println("Logged in with success.");
+                this.username = username;
+                this.loggedin = true;
+                break;
+
+            case 1:
+                debug(USER_NOT_EXIST);
+                break;
+        
+            case -1:
+                debug(SQL_ERROR);
+                break;
+
+            default:
+                debug(UNKNOWN);
+                break;
+        }
     }
 
-    public Boolean signup(String username, String new_password) {
+    public void signup(String username, String new_password) {
         SignUpRequest request = SignUpRequest.newBuilder().setUsername(username).setPassword(new_password).build();
         SignUpResponse response = stub.signup(request);
-        return response.getAck() != 0;
+        switch (response.getAck()) {
+            case 0:
+                System.out.println("User registered with success.");
+                this.username = username;
+                this.loggedin = true;
+                break;
+
+            case 1:
+                debug("User already exists.");
+                break;
+
+            case -1:
+                debug(SQL_ERROR);
+                break;
+            
+            default:
+                debug(UNKNOWN);
+                break;
+        }
     }
 
-    public Boolean logout() {
+    public void logout() {
         LogoutRequest request = LogoutRequest.newBuilder().build();
         LogoutResponse response = stub.logout(request);
-        return response.getAck() != 0;
+        switch (response.getAck()) {
+            case 0:
+                System.out.println("Logged out with success.");
+                this.username = null;
+                this.loggedin = false;
+                break;
+        
+            default:
+                debug(UNKNOWN);
+                break;
+        }
     }
     
-    public Boolean nnote(String title, String content) {
+    public void nnote(String title, String content) {
         NNoteRequest request = NNoteRequest.newBuilder().setUsername(this.username).setTitle(title).setContent(content).build();
         NNoteResponse response = stub.nnote(request);
-        return response.getAck() != 0;
+        switch (response.getAck()) {
+            case 0:
+                System.out.println("Note created with success.");
+                break;
+        
+            case 1:
+                debug(USER_NOT_EXIST);
+                break;
+
+            case 2:
+                debug("A Note with that title already exists.");
+                break;
+            
+            case -1:
+                debug(SQL_ERROR);
+                break;
+            
+            default:
+                debug(UNKNOWN);
+                break;
+        }
     }
 
-    public List<String> mnotes() {
+    public void mnotes() {
         List<String> my_notes = new ArrayList<>();
         MNoteRequest request = MNoteRequest.newBuilder().setUsername(this.username).build();
         MNoteResponse response = stub.mnote(request);
         switch (response.getAck()) {
             case 0:
-                System.err.println("ERROR: User doesn't exists.");
-                break;
-        
-            case -1:
-            System.err.println("ERROR: Server SQL error.");
-                break;
-            case 1:
                 my_notes = response.getNoteTitlesList();
+                System.out.println("Your notes:\n" + my_notes);
                 break;
+                
+            case 1:
+                debug(USER_NOT_EXIST);
+                break;
+                            
+            case -1:
+                    debug(SQL_ERROR);
+                    break;
+
             default:
-                System.out.println("Unknown error.");
+                debug(UNKNOWN);
                 break;
 
         }
+    }
 
-        return my_notes;
+    public void rnote(String title) {
+        RNoteRequest request = RNoteRequest.newBuilder().setUsername(this.username).setTitle(title).build();
+        RNoteResponse response = stub.rnote(request);
+        switch (response.getAck()) {
+            case 0:
+                System.out.println(title + "\n" + response.getContent() + "\n");                
+                break;
+            
+            case 1:
+                debug(USER_NOT_EXIST);
+
+            case 2:
+                debug("ERROR: A note with that title doesn't exists.");
+
+            case 3:
+                debug("ERROR: You don't have access to that note.");
+
+            case -1:
+                debug(SQL_ERROR);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    public void snotes() {
+        List<String> availableNotes = new ArrayList<>();
+        SNotesRequest request = SNotesRequest.newBuilder().setUsername(this.username).build();
+        SNotesResponse response = stub.snotes(request);
+        switch (response.getAck()) {
+            case 0:
+                availableNotes = response.getNoteTitlesList();
+                System.out.println("Notes you have access to: " + availableNotes);
+                break;
+            case 1:
+                debug(USER_NOT_EXIST);
+                break;
+
+            case -1:
+                debug(SQL_ERROR);
+                break;
+
+            default:
+                debug(UNKNOWN);
+                break;
+        }
+    }
+
+    public void gaccess(String other_username, String title) {
+        GAccessRequest request = GAccessRequest.newBuilder().setUsername(this.username).setOtherUsername(other_username).setTitle(title).build();
+        GAccessResponse response = stub.gaccess(request);
+        switch (response.getAck()) {
+            case 0:
+                System.out.println("Viewer access granted to: " + other_username);
+                break;
+
+            case 1:
+                debug(USER_NOT_EXIST);
+                break;
+
+            case 2:
+                debug("ERROR: Note doesn't exist.");
+                break;
+            
+            case 3:
+                debug("ERROR: other_username doesn't represent an existant user.");
+                break;
+
+            case 4:
+                debug("ERROR: You are not the owner of that note.");
+                break;
+            
+            case -1:
+                debug(SQL_ERROR);
+                break;        
+            
+            default:
+                debug(UNKNOWN);
+                break;
+        }
     }
     
-    // #TODO
-    public Boolean rnote(String title) {
-        return true;
-    }
-
-    public Boolean snotes() {
-        return true;
-    }
-
-    public Boolean gaccess() {
-        return true;
-    }
-
     public void main_loop() {
         this.initComms();
 
         Scanner scanner = new Scanner(System.in);
         Boolean exit = false;
-        Boolean loggedin = false;
 
         System.out.println("Welcome to NotIST !\nPlease singup/login before we start.\nType \"help\" to see each command usage.");
 
@@ -136,82 +278,84 @@ public class ClientMain {
 
                 case LOGIN:
                     if (split.length == 3) {
-                        if(this.login(split[1], split[2])) {
-                            System.out.println("Success, logged in.");
-                            loggedin = true;
-                            this.username = split[1];
-                        }
-                        else { debug("Error, username or password invalid."); }
-                    } else { debug(DEFAULT); }
+                        
+                        if (this.loggedin) {
+                            debug(ALR_LOGGEDIN);
+                            break;
+                        } this.login(split[1], split[2]);
+
+                    } else { debug(FORMAT_ERROR); }
                     break;
 
                 case SIGNUP:
                     if (split.length == 3) {
-                        if(this.signup(split[1], split[2])) {
-                            System.out.println("Success, signed up.");
-                            loggedin = true;
-                            this.username = split[1];
-                        }
-                        else { debug("Error, username already in use."); }
-                    } else { debug(DEFAULT); }
+                        if (this.loggedin) {
+                            debug(ALR_LOGGEDIN);
+                            break;
+                        } this.signup(split[1], split[2]);
+                    } else { debug(FORMAT_ERROR); }
                     break;
 
                 case LOGOUT:
-                    if (loggedin) {
+                    if (this.loggedin) {
                         if (split.length == 1) {
-                            if(this.logout()) {
-                                System.out.println("Logged out with success. Leaving...");
-                                loggedin = false;
-                            } else { debug("Unexpected error."); }
-                        } else { debug(DEFAULT); }
+                            this.logout();
+                        } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
 
                 case NEW_NOTE:
-                    if(loggedin) {
-                        this.nnote(split [1], split[2]);        // #CHANGE !!! 
+                    if(this.loggedin) {
+                        if (split.length == 3) {
+                            this.nnote(split [1], split[2]);        // #CHANGE !!! 
+                        } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
 
                 case MY_NOTES:
-                    if(loggedin) {
-                        List<String> my_notes = this.mnotes();
-                        System.out.println("Your notes:\n" + my_notes);
+                    if(this.loggedin) {
+                        if (split.length == 1) {
+                            this.mnotes();
+                        } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
                 
                 case EXIT:
-                    if(loggedin)
+                    if(this.loggedin)
                         this.logout();
                     exit = true;
+                    System.out.println("Exiting NotIST app...");
                     break;
                 
-
-                // #TODO
                 case READ_NOTE:
-                    if(loggedin) {
-                        
+                    if(this.loggedin) {
+                        if (split.length == 2) {
+                            this.rnote(split[1]);
+                        } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
 
                 case SEE_NOTES:
-                    if(loggedin) {
-
+                    if(this.loggedin) {
+                        if (split.length == 1) {
+                            this.snotes();
+                        } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
 
                 case GRANT_ACCESS:
-                    if(loggedin) {
-
+                    if(this.loggedin) {
+                        if (split.length == 3) {
+                            this.gaccess(split[1], split[2]);
+                        } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
 
                 case HELP:
-                    if (loggedin) {
-                        // #TODO
+                    if (this.loggedin) {
                         System.out.println("Available commands:\n" +
                         "LOGOUT: logout\n" +
-                        "NEW NOTE: nnote [title] [] [content]\n" +
+                        "NEW NOTE: nnote [title] [content]\n" +
                         "READ NOTE: rnote [title]\n" +
                         "SEE NOTES: snotes\n" +
                         "MY NOTES: mnotes\n" +
@@ -226,7 +370,7 @@ public class ClientMain {
                     }
 
                 default :
-                    debug(DEFAULT);
+                    debug(FORMAT_ERROR);
                     break;
             }
         }

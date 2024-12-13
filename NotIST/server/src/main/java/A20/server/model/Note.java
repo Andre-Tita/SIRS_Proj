@@ -37,6 +37,7 @@ public class Note {
     
     // Getters
     
+    public int getNoteId() { return this.n_id; }
     public int getOwnerId() { return this.owner_id; }
     public int getVersion() { return this.version; }
     public String getTitle() { return this.title; }

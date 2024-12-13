@@ -4,11 +4,11 @@ import io.grpc.stub.StreamObserver;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.stream.Stream;
 
 import A20.*;
 import A20.server.model.*;
 import A20.server.repository.*;
-import A20.server.util.*;
 
 public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
     private final UserDAO userDAO = new UserDAO();
@@ -25,17 +25,17 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
             User user = userDAO.getUserByUsernameAndPass(request.getUsername(), request.getPassword());
             
             if (user != null) {
-                LoginResponse response = LoginResponse.newBuilder().setAck(1).build(); // Success
+                LoginResponse response = LoginResponse.newBuilder().setAck(0).build(); // Success
                 responseObserver.onNext(response);
             
             } else {
-                LoginResponse response = LoginResponse.newBuilder().setAck(0).build(); // Failure
+                LoginResponse response = LoginResponse.newBuilder().setAck(1).build(); // Failure
                 responseObserver.onNext(response);
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
-            LoginResponse response = LoginResponse.newBuilder().setAck(0).build(); // Error
+            LoginResponse response = LoginResponse.newBuilder().setAck(-1).build(); // Error
             responseObserver.onNext(response);
         }
 
@@ -54,12 +54,12 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                 // Add new user
                 User newUser = new User(request.getUsername(), request.getPassword(), ""); // #Replace with appropriate public key
                 userDAO.addUser(newUser);
-                SignUpResponse response = SignUpResponse.newBuilder().setAck(1).build(); // Success
+                SignUpResponse response = SignUpResponse.newBuilder().setAck(0).build(); // Success
                 responseObserver.onNext(response);
 
             } else {
                 // User already exists
-                SignUpResponse response = SignUpResponse.newBuilder().setAck(0).build(); // Failure
+                SignUpResponse response = SignUpResponse.newBuilder().setAck(1).build(); // Failure
                 responseObserver.onNext(response);
             }
 
@@ -77,7 +77,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
         // #TODO Verify if the user is logged in ???
         System.out.println("Received a logout request!");
 
-        LogoutResponse response = LogoutResponse.newBuilder().setAck(1).build();
+        LogoutResponse response = LogoutResponse.newBuilder().setAck(0).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
@@ -94,7 +94,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
             if (user == null) { 
                 // User doesn't exists
-                NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build(); // Failure
+                NNoteResponse response = NNoteResponse.newBuilder().setAck(1).build(); // Failure
                 responseObserver.onNext(response);
                 
             } else {
@@ -106,12 +106,12 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     Note newNote = new Note(user.getUserId(), request.getTitle(), request.getContent());
                     System.out.println(newNote);
                     noteDAO.addNote(newNote);
-                    NNoteResponse response = NNoteResponse.newBuilder().setAck(1).build(); // Success
+                    NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build(); // Success
                     responseObserver.onNext(response);
 
                 } else {
                     // Note already exists
-                    NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build(); // Failure
+                    NNoteResponse response = NNoteResponse.newBuilder().setAck(2).build(); // Failure
                     responseObserver.onNext(response);
                 }
 
@@ -134,12 +134,11 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
             if (user == null) { 
                 // User doesn't exists
-                MNoteResponse response = MNoteResponse.newBuilder().setAck(0).build(); // Failure
+                MNoteResponse response = MNoteResponse.newBuilder().setAck(1).build(); // Failure
                 responseObserver.onNext(response);
                 
             } else {
-                List<Note> notes_list = noteDAO.getNotesByUserId(user.getUserId());
-                MNoteResponse response = MNoteResponse.newBuilder().setAck(1).addAllNoteTitles(noteDAO.getNotesTtileByUserId(user.getUserId())).build(); // Success
+                MNoteResponse response = MNoteResponse.newBuilder().setAck(0).addAllNoteTitles(noteDAO.getNotesTitleByUserId(user.getUserId())).build(); // Success
                 responseObserver.onNext(response);
             }
 
@@ -149,6 +148,117 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
             responseObserver.onNext(response);
         } 
 
+        responseObserver.onCompleted(); 
+    }
+
+    @Override
+    public void rnote(RNoteRequest request, StreamObserver<RNoteResponse> responseObserver) {
+
+        try {
+            // Checks if user exists
+            User user = userDAO.getUserByUsername(request.getUsername());
+            if (user == null) {
+                RNoteResponse response = RNoteResponse.newBuilder().setAck(1).build(); // Failure
+                responseObserver.onNext(response);
+            } else {
+                // Checks if note exists
+                Note note = noteDAO.getNoteByTitle(request.getTitle());
+                if (note == null) {
+                    RNoteResponse response = RNoteResponse.newBuilder().setAck(2).build(); // Failure
+                    responseObserver .onNext(response);
+                } else {
+                    // Checks if the user has permission to view the note
+                    if (noteDAO.canAccessNote(user.getUserId(), note.getNoteId())) {
+                        RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
+                        responseObserver .onNext(response);
+                    } else {
+                        RNoteResponse response = RNoteResponse.newBuilder().setAck(3).build(); // Failure
+                        responseObserver .onNext(response);
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            RNoteResponse response = RNoteResponse.newBuilder().setAck(-1).build(); // Error
+            responseObserver.onNext(response);
+        } 
+        responseObserver.onCompleted(); 
+    }
+
+    @Override
+    public void snotes(SNotesRequest request, StreamObserver<SNotesResponse> responseObserver) {
+        try {
+            // Checks if user exists
+            User user = userDAO.getUserByUsername(request.getUsername());
+
+            if (user == null) {
+                // User doesn't exist
+                SNotesResponse response = SNotesResponse.newBuilder().setAck(1).build(); // Failure
+                responseObserver.onNext(response);
+
+            } else {
+
+                SNotesResponse response = SNotesResponse.newBuilder().setAck(0).addAllNoteTitles(noteDAO.getUsersAccessNotes(user.getUserId())).build(); // Success
+                responseObserver.onNext(response);
+            }
+  
+        } catch (SQLException e) {
+            e.printStackTrace();
+            SNotesResponse response = SNotesResponse.newBuilder().setAck(-1).build(); // Error
+            responseObserver.onNext(response);
+        } 
+        responseObserver.onCompleted(); 
+    }
+
+    @Override
+    public void gaccess(GAccessRequest request, StreamObserver<GAccessResponse> responseObserver) {
+        
+        try {
+            // Checks if user requesting exists
+            User my_user = userDAO.getUserByUsername(request.getUsername());
+
+            if (my_user == null) {
+                // My user doesn't exist
+                GAccessResponse response = GAccessResponse.newBuilder().setAck(1).build(); // Failure
+                responseObserver.onNext(response);
+
+            } else {
+
+                // Checks if note exists
+                Note note = noteDAO.getNoteByTitle(request.getTitle());
+                if (note == null) {
+                    GAccessResponse response = GAccessResponse.newBuilder().setAck(2).build(); // Failure
+                        responseObserver.onNext(response);
+
+                } else {
+
+                    // Checks if my user is owner of the note
+                    if(!noteDAO.isOwner(my_user.getUserId(), request.getTitle())) {
+                        GAccessResponse response = GAccessResponse.newBuilder().setAck(3).build(); // Failure
+                        responseObserver.onNext(response);
+                    
+                    } else {
+
+                        // Checks if other user exists
+                        User other_user = userDAO.getUserByUsername(request.getOtherUsername());
+                        if (other_user == null) {
+                            GAccessResponse response = GAccessResponse.newBuilder().setAck(4).build(); // Failure
+                            responseObserver.onNext(response);
+                        
+                        } else {
+                            noteDAO.grantAccessNote(other_user.getUserId(), note.getNoteId(), my_user.getUserId());
+                            GAccessResponse response = GAccessResponse.newBuilder().setAck(0).build(); // Success
+                            responseObserver.onNext(response);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            GAccessResponse response = GAccessResponse.newBuilder().setAck(-1).build(); // Error
+            responseObserver.onNext(response);
+        } 
         responseObserver.onCompleted(); 
     }
 }

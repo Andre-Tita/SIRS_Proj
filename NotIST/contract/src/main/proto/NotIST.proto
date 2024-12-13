@@ -62,6 +62,38 @@ message MNoteResponse {
     repeated string note_titles = 2;
 }
 
+// see the notes that user has access
+message SNotesRequest {
+    string username = 1;
+}
+
+message SNotesResponse {
+    int32 ack = 1;
+    repeated string note_titles = 2;
+}
+
+// grant access to another user to see the note
+message GAccessRequest {
+    string username = 1;
+    string other_username = 2;
+    string title = 3;
+}
+
+message GAccessResponse {
+    int32 ack = 1;
+}
+
+// read note operation
+message RNoteRequest {
+    string username = 1;
+    string title = 2;
+}
+
+message RNoteResponse {
+    int32 ack = 1;
+    string content = 2;
+}
+
 // service
 service NotIST {
     rpc signup(SignUpRequest) returns (SignUpResponse);
@@ -69,4 +101,7 @@ service NotIST {
     rpc logout(LogoutRequest) returns (LogoutResponse);
     rpc nnote(NNoteRequest) returns (NNoteResponse);
     rpc mnote(MNoteRequest) returns (MNoteResponse);
+    rpc snotes(SNotesRequest) returns (SNotesResponse);
+    rpc rnote(RNoteRequest) returns (RNoteResponse);
+    rpc gaccess(GAccessRequest) returns (GAccessResponse);
 }
