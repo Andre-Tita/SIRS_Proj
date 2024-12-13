@@ -16,6 +16,7 @@ message SignUpRequest {
 
 message SignUpResponse {
     int32 ack = 1;
+    int32 user_id = 2;
 }
 
 // login operation
@@ -27,12 +28,13 @@ message LoginRequest {
 
 message LoginResponse {
     int32 ack = 1;
+    int32 user_id = 2;
 }
 
 // logout operation
 
 message LogoutRequest {
-    // empty
+    string username = 1;
 }
 
 message LogoutResponse {

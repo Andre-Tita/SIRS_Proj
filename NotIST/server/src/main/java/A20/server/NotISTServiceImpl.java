@@ -25,8 +25,18 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
             User user = userDAO.getUserByUsernameAndPass(request.getUsername(), request.getPassword());
             
             if (user != null) {
-                LoginResponse response = LoginResponse.newBuilder().setAck(0).build(); // Success
-                responseObserver.onNext(response);
+
+                // Checks if user is already logged in
+                if (userDAO.isUserLoggedIn(user.getUserId())) {
+                    LoginResponse response = LoginResponse.newBuilder().setAck(2).build(); // Failure
+                    responseObserver.onNext(response);
+
+                } else {
+
+                    userDAO.login(user.getUserId());
+                    LoginResponse response = LoginResponse.newBuilder().setAck(0).setUserId(user.getUserId()).build(); // Success
+                    responseObserver.onNext(response);
+                }
             
             } else {
                 LoginResponse response = LoginResponse.newBuilder().setAck(1).build(); // Failure
@@ -52,9 +62,9 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
             if (existingUser == null) {
                 // Add new user
-                User newUser = new User(request.getUsername(), request.getPassword(), ""); // #Replace with appropriate public key
+                User newUser = new User(request.getUsername(), request.getPassword(), request.getPubKey()); // #Replace with appropriate public key
                 userDAO.addUser(newUser);
-                SignUpResponse response = SignUpResponse.newBuilder().setAck(0).build(); // Success
+                SignUpResponse response = SignUpResponse.newBuilder().setAck(0).setUserId((userDAO.getUserByUsername(request.getUsername())).getUserId()).build(); // Success
                 responseObserver.onNext(response);
 
             } else {
@@ -74,11 +84,36 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
     @Override
     public void logout(LogoutRequest request, StreamObserver<LogoutResponse> responseObserver) {
-        // #TODO Verify if the user is logged in ???
         System.out.println("Received a logout request!");
 
-        LogoutResponse response = LogoutResponse.newBuilder().setAck(0).build();
-        responseObserver.onNext(response);
+        try {
+            // Checks if user exists
+            User user = userDAO.getUserByUsername(request.getUsername());
+            if (user == null) {
+                LogoutResponse response = LogoutResponse.newBuilder().setAck(1).build();    // Failure
+                responseObserver.onNext(response);
+            
+            } else {
+
+                // Checks if user is logged in
+                if (userDAO.isUserLoggedIn(user.getUserId())) {
+                    
+                    userDAO.logout(user.getUserId());
+                    LogoutResponse response = LogoutResponse.newBuilder().setAck(0).build();    // Success
+                    responseObserver.onNext(response);   
+                } else {
+
+                    LogoutResponse response = LogoutResponse.newBuilder().setAck(2).build();    // Failure
+                    responseObserver.onNext(response);  
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            LogoutResponse response = LogoutResponse.newBuilder().setAck(-1).build(); // Error
+            responseObserver.onNext(response);
+        } 
+
         responseObserver.onCompleted();
     }
 

@@ -9,7 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-import javax.print.DocFlavor.STRING;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ClientMain {
 	private static final String SPACE = " ";
@@ -38,6 +39,8 @@ public class ClientMain {
 
     private String username;
     private boolean loggedin;
+    private String pubKey;
+    private Map<Integer, String> client_keys = new HashMap<>(); // # Change String to public key
 
     public static void main(String[] args) {
 		// Main loop
@@ -72,10 +75,15 @@ public class ClientMain {
                 System.out.println("Logged in with success.");
                 this.username = username;
                 this.loggedin = true;
+                this.client_keys.put(response.getUserId(), this.pubKey);
                 break;
 
             case 1:
                 debug(USER_NOT_EXIST);
+                break;
+
+            case 2:
+                debug("ERROR: User already logged in.");
                 break;
         
             case -1:
@@ -89,13 +97,14 @@ public class ClientMain {
     }
 
     public void signup(String username, String new_password) {
-        SignUpRequest request = SignUpRequest.newBuilder().setUsername(username).setPassword(new_password).build();
+        SignUpRequest request = SignUpRequest.newBuilder().setUsername(username).setPassword(new_password).setPubKey("").build();
         SignUpResponse response = stub.signup(request);
         switch (response.getAck()) {
             case 0:
                 System.out.println("User registered with success.");
                 this.username = username;
                 this.loggedin = true;
+                this.client_keys.put(response.getUserId(), this.pubKey);
                 break;
 
             case 1:
@@ -113,7 +122,7 @@ public class ClientMain {
     }
 
     public void logout() {
-        LogoutRequest request = LogoutRequest.newBuilder().build();
+        LogoutRequest request = LogoutRequest.newBuilder().setUsername(this.username).build();
         LogoutResponse response = stub.logout(request);
         switch (response.getAck()) {
             case 0:
@@ -121,7 +130,15 @@ public class ClientMain {
                 this.username = null;
                 this.loggedin = false;
                 break;
-        
+            
+            case 1:
+                debug(USER_NOT_EXIST);
+                break;
+
+            case 2:
+                debug("ERROR: User is not logged in.");
+                break;
+
             default:
                 debug(UNKNOWN);
                 break;
@@ -245,11 +262,11 @@ public class ClientMain {
                 break;
             
             case 3:
-                debug("ERROR: other_username doesn't represent an existant user.");
+                debug("ERROR: You are not the owner of that note.");
                 break;
 
             case 4:
-                debug("ERROR: You are not the owner of that note.");
+                debug("ERROR: other_username doesn't represent an existant user.");
                 break;
             
             case -1:

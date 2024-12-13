@@ -9,12 +9,13 @@ import A20.server.model.User;
 public class UserDAO {
 
     public void addUser(User user) throws SQLException {
-        String query = "INSERT INTO users (username, password_hash, public_key) VALUES (?, ?, ?)";
+        String query = "INSERT INTO users (username, password_hash, public_key, is_loggedin) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, user.getUsername());
             stmt.setString(2, user.getPassword());
             stmt.setString(3, user.getPublicKey());
+            stmt.setBoolean(4, true);
             stmt.executeUpdate();
         }
     }
@@ -64,24 +65,51 @@ public class UserDAO {
         return null;
     }
 
-    public List<User> getAllUsers() throws SQLException {
-        
-        String query = "SELECT * FROM Users";
-        
-        List<User> users = new ArrayList<>();
-        
+    public void login(int user_id) throws SQLException {
+        String query = "UPDATE users SET is_loggedin = TRUE WHERE user_id = ?";
+    
         try (Connection conn = DatabaseConnector.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(query)) {
-            while (rs.next()) {
-                users.add(new User(
-                    rs.getInt("user_id"),
-                    rs.getString("username"),
-                    rs.getString("password_hash"),          // # maybe not return this
-                    rs.getString("public_key")              // # maybe not return this
-                ));
-            }
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+    
+            stmt.setInt(1, user_id);
+            stmt.executeUpdate();
         }
-        return users;
     }
+    
+    public void logout(int user_id) throws SQLException {
+        String query = "UPDATE users SET is_loggedin = FALSE WHERE user_id = ?";
+    
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+    
+            stmt.setInt(1, user_id);
+            stmt.executeUpdate();
+        }
+    }
+
+    public void logoutAllUsers() throws SQLException {
+        String query = "UPDATE users SET is_loggedin = FALSE";
+
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.executeUpdate();
+        }
+    }
+
+    
+    public boolean isUserLoggedIn(int user_id) throws SQLException {
+        String query = "SELECT * FROM users WHERE user_id = ? AND is_loggedin = true";
+
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+    
+            stmt.setInt(1, user_id);
+
+            ResultSet rs = stmt.executeQuery();
+
+            return rs.next();
+        }
+    }
+
 }

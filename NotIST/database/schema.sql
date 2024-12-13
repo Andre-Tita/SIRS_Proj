@@ -1,14 +1,15 @@
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS notes CASCADE;
-DROP TABLE IF EXISTS access_logs;
-DROP TABLE IF EXISTS encryption_keys;
+DROP TABLE IF EXISTS access_logs CASCADE;
+DROP TABLE IF EXISTS encryption_keys CASCADE;
 
 -- Create Users Table
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    public_key VARCHAR(255) NOT NULL
+    public_key VARCHAR(255) NOT NULL,
+    is_loggedin BOOLEAN
 );
 
 -- Create Notes Table
