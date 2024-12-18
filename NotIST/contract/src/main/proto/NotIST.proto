@@ -79,6 +79,7 @@ message GAccessRequest {
     string username = 1;
     string other_username = 2;
     string title = 3;
+    string user_role = 4;
 }
 
 message GAccessResponse {
@@ -89,11 +90,25 @@ message GAccessResponse {
 message RNoteRequest {
     string username = 1;
     string title = 2;
+    int32 version = 3;
 }
 
 message RNoteResponse {
     int32 ack = 1;
     string content = 2;
+}
+
+// edit note operation
+message ENoteRequest {
+    string username = 1;
+    string title = 2;
+}
+
+message ENoteResponse {
+    int32 ack = 1;
+    string title = 2;
+    int32 version = 3;
+    string content = 4;
 }
 
 // service
@@ -105,5 +120,6 @@ service NotIST {
     rpc mnote(MNoteRequest) returns (MNoteResponse);
     rpc snotes(SNotesRequest) returns (SNotesResponse);
     rpc rnote(RNoteRequest) returns (RNoteResponse);
+    rpc enote(ENoteRequest) returns (ENoteResponse);
     rpc gaccess(GAccessRequest) returns (GAccessResponse);
 }

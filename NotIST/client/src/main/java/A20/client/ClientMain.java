@@ -8,9 +8,10 @@ import io.grpc.StatusRuntimeException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-
 import java.util.HashMap;
 import java.util.Map;
+
+import java.lang.Integer;
 
 public class ClientMain {
 	private static final String SPACE = " ";
@@ -20,6 +21,7 @@ public class ClientMain {
     private static final String EXIT = "exit";                  // exit the client app
 	private static final String NEW_NOTE = "nnote";             // create a note
 	private static final String READ_NOTE = "rnote";            // read a note
+    private static final String EDIT_NOTE = "enote";
 	private static final String SEE_NOTES = "snotes";           // show the notes and note's ids that the user has access
 	private static final String MY_NOTES = "mnotes";            // show the notes created by the user
 	private static final String GRANT_ACCESS = "gaccess";       // grant access to another user to see the user notes
@@ -196,8 +198,8 @@ public class ClientMain {
         }
     }
 
-    public void rnote(String title) {
-        RNoteRequest request = RNoteRequest.newBuilder().setUsername(this.username).setTitle(title).build();
+    public void rnote(String title, int version) {
+        RNoteRequest request = RNoteRequest.newBuilder().setUsername(this.username).setTitle(title).setVersion(version).build();
         RNoteResponse response = stub.rnote(request);
         switch (response.getAck()) {
             case 0:
@@ -206,12 +208,45 @@ public class ClientMain {
             
             case 1:
                 debug(USER_NOT_EXIST);
+                break;
 
             case 2:
                 debug("ERROR: A note with that title doesn't exists.");
+                break;
 
             case 3:
                 debug("ERROR: You don't have access to that note.");
+                break;
+
+            case -1:
+                debug(SQL_ERROR);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    public void enote(String title) {
+        ENoteRequest request = ENoteRequest.newBuilder().setUsername(this.username).setTitle(title).build();
+        ENoteResponse response = stub.enote(request);
+        switch (response.getAck()) {
+            case 0:
+                System.out.println("Opening note...");
+                // # TODO open text editor with the note.
+                break;
+        
+            case 1:
+                debug(USER_NOT_EXIST);
+                break;
+
+            case 2:
+                debug("ERROR: A note with that title doesn't exists.");
+                break;
+
+            case 3:
+                debug("ERROR: You don't have access to that note.");
+                break;
 
             case -1:
                 debug(SQL_ERROR);
@@ -229,7 +264,10 @@ public class ClientMain {
         switch (response.getAck()) {
             case 0:
                 availableNotes = response.getNoteTitlesList();
-                System.out.println("Notes you have access to: " + availableNotes);
+                System.out.println("Notes you have access to:");
+                for(String note: availableNotes) {
+                    System.out.println(note);
+                }
                 break;
             case 1:
                 debug(USER_NOT_EXIST);
@@ -245,8 +283,8 @@ public class ClientMain {
         }
     }
 
-    public void gaccess(String other_username, String title) {
-        GAccessRequest request = GAccessRequest.newBuilder().setUsername(this.username).setOtherUsername(other_username).setTitle(title).build();
+    public void gaccess(String other_username, String title, String role) {
+        GAccessRequest request = GAccessRequest.newBuilder().setUsername(this.username).setOtherUsername(other_username).setTitle(title).setUserRole(role).build();
         GAccessResponse response = stub.gaccess(request);
         switch (response.getAck()) {
             case 0:
@@ -346,8 +384,16 @@ public class ClientMain {
                 
                 case READ_NOTE:
                     if(this.loggedin) {
-                        if (split.length == 2) {
-                            this.rnote(split[1]);
+                        if (split.length == 3) {
+                            this.rnote(split[1], Integer.parseInt(split[2]));
+                        } else { debug(FORMAT_ERROR); }
+                    } else { debug(NOT_LOGGEDIN); }
+                    break;
+
+                case EDIT_NOTE:
+                    if (this.loggedin) {
+                        if (split.length == 3) {
+
                         } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
@@ -362,8 +408,8 @@ public class ClientMain {
 
                 case GRANT_ACCESS:
                     if(this.loggedin) {
-                        if (split.length == 3) {
-                            this.gaccess(split[1], split[2]);
+                        if (split.length == 4) {
+                            this.gaccess(split[1], split[2], split[3]);
                         } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
@@ -373,10 +419,11 @@ public class ClientMain {
                         System.out.println("Available commands:\n" +
                         "LOGOUT: logout\n" +
                         "NEW NOTE: nnote [title] [content]\n" +
-                        "READ NOTE: rnote [title]\n" +
+                        "READ NOTE: rnote [title] [version]\n" +
+                        "EDIT NOTE: enote [title]\n" +
                         "SEE NOTES: snotes\n" +
                         "MY NOTES: mnotes\n" +
-                        "GRANT ACCESS: gaccess [other_username] [note_title]\n"+
+                        "GRANT ACCESS: gaccess [other_username] [note_title] [user_role] -> (can be VIEWER or EDITOR)\n"+
                         "EXIT: exit\n");
                         break;
                     } else { 

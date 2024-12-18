@@ -197,13 +197,13 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                 responseObserver.onNext(response);
             } else {
                 // Checks if note exists
-                Note note = noteDAO.getNoteByTitle(request.getTitle());
+                Note note = noteDAO.getNoteByTitleAndVersion(request.getTitle(), request.getVersion());
                 if (note == null) {
                     RNoteResponse response = RNoteResponse.newBuilder().setAck(2).build(); // Failure
                     responseObserver .onNext(response);
                 } else {
                     // Checks if the user has permission to view the note
-                    if (noteDAO.canAccessNote(user.getUserId(), note.getNoteId())) {
+                    if (noteDAO.canViewNote(user.getUserId(), note.getTitle())) {
                         RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
                         responseObserver .onNext(response);
                     } else {
@@ -216,6 +216,40 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
         } catch (SQLException e) {
             e.printStackTrace();
             RNoteResponse response = RNoteResponse.newBuilder().setAck(-1).build(); // Error
+            responseObserver.onNext(response);
+        } 
+        responseObserver.onCompleted(); 
+    }
+
+    @Override 
+    public void enote(ENoteRequest request, StreamObserver<ENoteResponse> responseObserver) {
+        try {
+            // Checks if user exists
+            User user = userDAO.getUserByUsername(request.getUsername());
+            if (user == null) {
+                ENoteResponse response = ENoteResponse.newBuilder().setAck(1).build(); // Failure
+                responseObserver.onNext(response);
+            } else {
+                // Checks if note exists
+                Note note = noteDAO.getNoteByTitle(request.getTitle());
+                if (note == null) {
+                    ENoteResponse response = ENoteResponse.newBuilder().setAck(2).build(); // Failure
+                    responseObserver .onNext(response);
+                } else {
+                    // Checks if the user has permission to edit the note
+                    if (noteDAO.canEditNote(user.getUserId(), note.getTitle())) {
+                        ENoteResponse response = ENoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
+                        responseObserver .onNext(response);
+                    } else {
+                        ENoteResponse response = ENoteResponse.newBuilder().setAck(3).build(); // Failure
+                        responseObserver .onNext(response);
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            ENoteResponse response = ENoteResponse.newBuilder().setAck(-1).build(); // Error
             responseObserver.onNext(response);
         } 
         responseObserver.onCompleted(); 
@@ -282,7 +316,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                             responseObserver.onNext(response);
                         
                         } else {
-                            noteDAO.grantAccessNote(other_user.getUserId(), note.getNoteId(), my_user.getUserId());
+                            noteDAO.grantAccessNote(other_user.getUserId(), note.getNoteId(), my_user.getUserId(), request.getUserRole());
                             GAccessResponse response = GAccessResponse.newBuilder().setAck(0).build(); // Success
                             responseObserver.onNext(response);
                         }

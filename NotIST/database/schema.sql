@@ -1,5 +1,6 @@
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS notes CASCADE;
+DROP TABLE IF EXISTS note_versions CASCADE;
 DROP TABLE IF EXISTS access_logs CASCADE;
 DROP TABLE IF EXISTS encryption_keys CASCADE;
 
@@ -12,15 +13,22 @@ CREATE TABLE users (
     is_loggedin BOOLEAN
 );
 
--- Create Notes Table
+-- Notes Table (metadata)
 CREATE TABLE notes (
     note_id SERIAL PRIMARY KEY,
     owner_id INT REFERENCES users(user_id),
-    version INT,
-    title VARCHAR(255),
-    content VARCHAR(255),                               -- # It was TEXT before
-    is_encrypted BOOLEAN DEFAULT TRUE,                  -- # Delete on final delievery (everything will be encrypted)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+    title VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Note Versions Table (tracks versions)
+CREATE TABLE note_versions (
+    version_id SERIAL PRIMARY KEY,
+    note_id INT REFERENCES notes(note_id) ON DELETE CASCADE,
+    version_number INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(note_id, version_number) -- Prevent duplicate versions
 );
 
 -- Create Access Logs Table, so we know which user has access to which note and what type of access
