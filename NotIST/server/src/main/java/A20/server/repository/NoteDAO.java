@@ -7,9 +7,10 @@ import A20.server.model.Note;
 
 public class NoteDAO {
 
+    // Create a note
     public void addNote(Note note) throws SQLException {
         String noteQuery = "INSERT INTO notes (title, owner_id) VALUES (?, ?) ON CONFLICT (title) DO NOTHING RETURNING note_id";
-        String versionQuery = "INSERT INTO note_versions (note_id, version_number, content) VALUES (?, ?, ?)";
+        String versionQuery = "INSERT INTO note_versions (note_id, version, content) VALUES (?, ?, ?)";
 
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement noteStmt = conn.prepareStatement(noteQuery, Statement.RETURN_GENERATED_KEYS);
@@ -41,7 +42,7 @@ public class NoteDAO {
             }
 
             // Fetch latest version number for the note
-            String fetchVersionNumber = "SELECT MAX(version_number) AS max_version FROM note_versions WHERE note_id = ?";
+            String fetchVersionNumber = "SELECT MAX(version) AS max_version FROM note_versions WHERE note_id = ?";
             int latestVersion = 0;
             try (PreparedStatement versionStmtFetch = conn.prepareStatement(fetchVersionNumber)) {
                 versionStmtFetch.setInt(1, noteId);
@@ -60,6 +61,7 @@ public class NoteDAO {
         }
     }
 
+    // Notes a certain user has access to
     public List<String> getUsersAccessNotes(int user_id) throws SQLException {
         String query = "SELECT n.title, al.user_role, n.owner_id " +
                        "FROM notes n " +
@@ -89,6 +91,7 @@ public class NoteDAO {
         return notesTitles;
     }
 
+    // Notes in which a user is owner
     public List<String> getNotesTitleByUserId(int user_id) throws SQLException {
         String query = "SELECT DISTINCT n.title " +
                        "FROM notes n " +
@@ -109,11 +112,11 @@ public class NoteDAO {
 
     // Returns the latest note with that title
     public Note getNoteByTitle (String title) throws SQLException {
-        String query = "SELECT nv.version_id, nv.content, nv.version_number, n.note_id, n.owner_id, n.title, n.created_at " +
+        String query = "SELECT nv.version_id, nv.content, nv.version, n.note_id, n.owner_id, n.title, n.date_created " +
                         "FROM notes n " +
                         "JOIN note_versions nv ON n.note_id = nv.note_id " +
                         "WHERE n.title = ? " +
-                        "ORDER BY nv.version_number DESC LIMIT 1";
+                        "ORDER BY nv.version DESC LIMIT 1";
 
         try (Connection conn = DatabaseConnector.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -124,21 +127,22 @@ public class NoteDAO {
                 return new Note(
                     rs.getInt("note_id"),
                     rs.getInt("owner_id"),
-                    rs.getInt("version_number"),
+                    rs.getInt("version"),
                     rs.getString("title"),
                     rs.getString("content"),
-                    rs.getTimestamp("created_at").toString()
+                    rs.getTimestamp("date_created").toString()
                 );
             }
         }
         return null;
     }
 
+    // Returns the note with that title and version
     public Note getNoteByTitleAndVersion (String title, int version) throws SQLException {
-        String query = "SELECT nv.version_id, nv.content, nv.version_number, n.note_id, n.owner_id, n.title, n.created_at " +
+        String query = "SELECT nv.version_id, nv.content, nv.version, n.note_id, n.owner_id, n.title, n.date_created " +
                         "FROM notes n " +
                         "JOIN note_versions nv ON n.note_id = nv.note_id " +
-                        "WHERE n.title = ? AND nv.version_number = ?";
+                        "WHERE n.title = ? AND nv.version = ?";
 
         try (Connection conn = DatabaseConnector.getConnection();
             PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -151,16 +155,17 @@ public class NoteDAO {
                 return new Note(
                     rs.getInt("note_id"),
                     rs.getInt("owner_id"),
-                    rs.getInt("version_number"),
+                    rs.getInt("version"),
                     rs.getString("title"),
                     rs.getString("content"),
-                    rs.getTimestamp("created_at").toString()
+                    rs.getTimestamp("date_created").toString()
                 );
             }
         }
         return null;
     }
 
+    // Checks if a user is owner of a certain note
     public Boolean isOwner(int user_id, String title) throws SQLException {
         String query = "SELECT 1 " +
                        "FROM notes " +
@@ -178,40 +183,23 @@ public class NoteDAO {
         }
     }
 
-    public Boolean canViewNote(int user_id, String title) throws SQLException {
+    // Checks if a user has a certain role
+    public Boolean hasAccess(int user_id, String title, String role) throws SQLException {
         String query = "SELECT * FROM notes n " +
                        "LEFT JOIN access_logs al ON n.note_id = al.note_id " +
-                       "WHERE (n.owner_id = ? OR (al.user_id = ? AND al.user_role = 'VIEWER')) " +
+                       "WHERE (n.owner_id = ? OR (al.user_id = ? AND al.user_role = ?)) " +
                        "AND n.title = ?";
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
-
             stmt.setInt(1, user_id);
             stmt.setInt(2, user_id);
-            stmt.setString(3, title);
-
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
+            stmt.setString(3, role);
+            stmt.setString(4, title);
+            return stmt.executeQuery().next();
         }
     }
-
-    public Boolean canEditNote(int user_id, String title) throws SQLException {
-        String query = "SELECT * FROM notes n " +
-                       "LEFT JOIN access_logs al ON n.note_id = al.note_id " +
-                       "WHERE (n.owner_id = ? OR (al.user_id = ? AND al.user_role = 'EDITOR')) " +
-                       "AND n.title = ?";
-        try (Connection conn = DatabaseConnector.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query)) {
-
-            stmt.setInt(1, user_id);
-            stmt.setInt(2, user_id);
-            stmt.setString(3, title);
-
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
-        }
-    }
-
+    
+    // Grants access to a user to view or edit a note
     public void grantAccessNote(int other_userId, int noteId, int userId, String role) throws SQLException {
         String query = "INSERT INTO access_logs (user_id, note_id, owner_id, user_role) VALUES (?, ?, ?, ?)";
 

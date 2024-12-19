@@ -46,8 +46,7 @@ message LogoutResponse {
 
 message NNoteRequest {
     string username = 1;
-    string title = 2;
-    string content = 3;
+    string note = 2;
 }
 
 message NNoteResponse {

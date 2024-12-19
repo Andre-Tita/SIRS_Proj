@@ -5,13 +5,13 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.*;
 
-import java.lang.Integer;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 
 public class ClientMain {
 	private static final String SPACE = " ";
@@ -69,7 +69,7 @@ public class ClientMain {
 		channel.shutdownNow();
     }
     
-	public void login(String username, String password) {
+	private void login(String username, String password) {
         LoginRequest request = LoginRequest.newBuilder().setUsername(username).setPassword(password).build();
         LoginResponse response = stub.login(request);
         switch (response.getAck()) {
@@ -98,7 +98,7 @@ public class ClientMain {
         }
     }
 
-    public void signup(String username, String new_password) {
+    private void signup(String username, String new_password) {
         SignUpRequest request = SignUpRequest.newBuilder().setUsername(username).setPassword(new_password).setPubKey("").build();
         SignUpResponse response = stub.signup(request);
         switch (response.getAck()) {
@@ -123,7 +123,7 @@ public class ClientMain {
         }
     }
 
-    public void logout() {
+    private void logout() {
         LogoutRequest request = LogoutRequest.newBuilder().setUsername(this.username).build();
         LogoutResponse response = stub.logout(request);
         switch (response.getAck()) {
@@ -147,8 +147,33 @@ public class ClientMain {
         }
     }
     
-    public void nnote(String title, String content) {
-        NNoteRequest request = NNoteRequest.newBuilder().setUsername(this.username).setTitle(title).setContent(content).build();
+    private void nnote(String filePath) {
+        try {
+            // Read file content
+            String jsonContent = Files.readString(Paths.get(filePath));
+            
+            // Validate JSON structure
+            Gson gson = new Gson();
+            JsonObject jsonObject = gson.fromJson(jsonContent, JsonObject.class);
+    
+            // Verify required fields exist
+            if (!jsonObject.has("id") || !jsonObject.has("title") || !jsonObject.has("note")) {
+                System.out.println("Invalid JSON structure. Required fields: id, title, note.");
+                return;
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+            return;
+        } catch (JsonSyntaxException e) {
+            System.out.println("Invalid JSON content: " + e.getMessage());
+            return;
+        }
+
+        NNoteRequest request = NNoteRequest.newBuilder()
+        .setUsername(this.username)
+        .setNote(jsonObject.toString()) // Sending JSON as string
+        .build();
+
         NNoteResponse response = stub.nnote(request);
         switch (response.getAck()) {
             case 0:
@@ -173,7 +198,7 @@ public class ClientMain {
         }
     }
 
-    public void mnotes() {
+    private void mnotes() {
         List<String> my_notes = new ArrayList<>();
         MNoteRequest request = MNoteRequest.newBuilder().setUsername(this.username).build();
         MNoteResponse response = stub.mnote(request);
@@ -198,7 +223,7 @@ public class ClientMain {
         }
     }
 
-    public void rnote(String title, int version) {
+    private void rnote(String title, int version) {
         RNoteRequest request = RNoteRequest.newBuilder().setUsername(this.username).setTitle(title).setVersion(version).build();
         RNoteResponse response = stub.rnote(request);
         switch (response.getAck()) {
@@ -227,7 +252,7 @@ public class ClientMain {
         }
     }
 
-    public void enote(String title) {
+    private void enote(String title) {
         ENoteRequest request = ENoteRequest.newBuilder().setUsername(this.username).setTitle(title).build();
         ENoteResponse response = stub.enote(request);
         switch (response.getAck()) {
@@ -257,7 +282,7 @@ public class ClientMain {
         }
     }
 
-    public void snotes() {
+    private void snotes() {
         List<String> availableNotes = new ArrayList<>();
         SNotesRequest request = SNotesRequest.newBuilder().setUsername(this.username).build();
         SNotesResponse response = stub.snotes(request);
@@ -283,7 +308,7 @@ public class ClientMain {
         }
     }
 
-    public void gaccess(String other_username, String title, String role) {
+    private void gaccess(String other_username, String title, String role) {
         GAccessRequest request = GAccessRequest.newBuilder().setUsername(this.username).setOtherUsername(other_username).setTitle(title).setUserRole(role).build();
         GAccessResponse response = stub.gaccess(request);
         switch (response.getAck()) {
@@ -317,7 +342,7 @@ public class ClientMain {
         }
     }
     
-    public void main_loop() {
+    private void main_loop() {
         this.initComms();
 
         Scanner scanner = new Scanner(System.in);
@@ -361,8 +386,8 @@ public class ClientMain {
 
                 case NEW_NOTE:
                     if(this.loggedin) {
-                        if (split.length == 3) {
-                            this.nnote(split [1], split[2]);        // #CHANGE !!! 
+                        if (split.length == 2) {
+                            this.nnote(split[1]);
                         } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
@@ -418,7 +443,7 @@ public class ClientMain {
                     if (this.loggedin) {
                         System.out.println("Available commands:\n" +
                         "LOGOUT: logout\n" +
-                        "NEW NOTE: nnote [title] [content]\n" +
+                        "NEW NOTE: nnote [filepath]\n" +
                         "READ NOTE: rnote [title] [version]\n" +
                         "EDIT NOTE: enote [title]\n" +
                         "SEE NOTES: snotes\n" +

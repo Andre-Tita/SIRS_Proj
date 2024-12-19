@@ -18,17 +18,18 @@ CREATE TABLE notes (
     note_id SERIAL PRIMARY KEY,
     owner_id INT REFERENCES users(user_id),
     title VARCHAR(255) NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Note Versions Table (tracks versions)
 CREATE TABLE note_versions (
     version_id SERIAL PRIMARY KEY,
     note_id INT REFERENCES notes(note_id) ON DELETE CASCADE,
-    version_number INT NOT NULL,
+    version INT NOT NULL,
     content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(note_id, version_number) -- Prevent duplicate versions
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    modified_at
+    UNIQUE(note_id, version) -- Prevent duplicate versions
 );
 
 -- Create Access Logs Table, so we know which user has access to which note and what type of access
@@ -46,5 +47,5 @@ CREATE TABLE encryption_keys (
     key_id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(user_id),
     key_value BYTEA,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

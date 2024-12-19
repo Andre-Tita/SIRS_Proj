@@ -6,6 +6,9 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Stream;
 
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
+
 import A20.*;
 import A20.server.model.*;
 import A20.server.repository.*;
@@ -120,43 +123,63 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
     // Notes Operations
     @Override
     public void nnote(NNoteRequest request, StreamObserver<NNoteResponse> responseObserver) {
-        System.out.println("Received username: " + request.getUsername() + " | title: " + request.getTitle()
-        + " | content: " + request.getContent());
+        System.out.println("Received username: " + request.getUsername() + " | note: " + request.getNote());
 
         try {
             // Check if user exists and is logged in
             User user = userDAO.getUserByUsername(request.getUsername());
-
+            
             if (user == null) { 
-                // User doesn't exists
-                NNoteResponse response = NNoteResponse.newBuilder().setAck(1).build(); // Failure
+                // User doesn't exist
+                NNoteResponse response = NNoteResponse.newBuilder().setAck(1).build();
                 responseObserver.onNext(response);
-                
+                responseObserver.onCompleted();
             } else {
+                // Parse the JSON note content
+                Gson gson = new Gson();
+                JsonObject noteJson = gson.fromJson(request.getNote(), JsonObject.class);
+                
                 // Check if the note already exists
-                Note existingNote = noteDAO.getNoteByTitle(request.getTitle());
-
-                if (existingNote == null) {
-                    // Add new note
-                    Note newNote = new Note(user.getUserId(), request.getTitle(), request.getContent());
-                    System.out.println(newNote);
-                    noteDAO.addNote(newNote);
-                    NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build(); // Success
-                    responseObserver.onNext(response);
-
-                } else {
+                String title = noteJson.get("title").getAsString();
+                Note existingNote = noteDAO.getNoteByTitle(title);
+                
+                if (existingNote != null) {
                     // Note already exists
-                    NNoteResponse response = NNoteResponse.newBuilder().setAck(2).build(); // Failure
+                    NNoteResponse response = NNoteResponse.newBuilder().setAck(2).build();
+                    responseObserver.onNext(response);
+                    responseObserver.onCompleted();
+                } else {
+                    // Extract fields from JSON
+                    int id = noteJson.get("id").getAsInt();
+                    String content = noteJson.get("note").getAsString();
+                    String dateCreated = noteJson.get("data_created").getAsString();
+                    String dateModified = noteJson.get("date_modified").getAsString();
+                    int lastModifiedBy = noteJson.get("last_modified_by").getAsInt();
+                    int version = noteJson.get("version").getAsInt();
+                    JsonObject owner = noteJson.getAsJsonObject("owner");
+                    JsonArray editors = noteJson.getAsJsonArray("editors");
+                    JsonArray viewers = noteJson.getAsJsonArray("viewers");
+
+                    // Add the new note to the database
+                    Note newNote = new Note(title, content, user.getUserId());
+
+                    noteDAO.addNote(newNote);
+
+                    NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build();
                     responseObserver.onNext(response);
                 }
-
             }
-    
         } catch (SQLException e) {
             e.printStackTrace();
-            NNoteResponse response = NNoteResponse.newBuilder().setAck(-1).build(); // Error
+            NNoteResponse response = NNoteResponse.newBuilder().setAck(-1).build();
             responseObserver.onNext(response);
-        } 
+
+        } catch (JsonSyntaxException e) {
+            System.out.println("Invalid JSON format: " + e.getMessage());
+            NNoteResponse response = NNoteResponse.newBuilder().setAck(-1).build();
+            responseObserver.onNext(response);
+
+        }
 
         responseObserver.onCompleted();
     }
@@ -203,7 +226,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     responseObserver .onNext(response);
                 } else {
                     // Checks if the user has permission to view the note
-                    if (noteDAO.canViewNote(user.getUserId(), note.getTitle())) {
+                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "VIEWER")) {
                         RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
                         responseObserver .onNext(response);
                     } else {
@@ -237,7 +260,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     responseObserver .onNext(response);
                 } else {
                     // Checks if the user has permission to edit the note
-                    if (noteDAO.canEditNote(user.getUserId(), note.getTitle())) {
+                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "EDITOR")) {
                         ENoteResponse response = ENoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
                         responseObserver .onNext(response);
                     } else {
