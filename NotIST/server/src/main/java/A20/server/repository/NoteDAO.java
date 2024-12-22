@@ -112,7 +112,7 @@ public class NoteDAO {
 
     // Returns the latest note with that title
     public Note getNoteByTitle (String title) throws SQLException {
-        String query = "SELECT nv.version_id, nv.content, nv.version, n.note_id, n.owner_id, n.title, n.date_created " +
+        String query = "SELECT nv.version_id, nv.content, nv.version, n.note_id, n.owner_id, n.title, n.data_created " +
                         "FROM notes n " +
                         "JOIN note_versions nv ON n.note_id = nv.note_id " +
                         "WHERE n.title = ? " +
@@ -126,11 +126,13 @@ public class NoteDAO {
             if (rs.next()) {
                 return new Note(
                     rs.getInt("note_id"),
-                    rs.getInt("owner_id"),
-                    rs.getInt("version"),
                     rs.getString("title"),
                     rs.getString("content"),
-                    rs.getTimestamp("date_created").toString()
+                    rs.getTimestamp("data_created").toLocalDateTime(),
+                    rs.getTimestamp("date_modified").toLocalDateTime(),
+                    rs.getInt("modified_by"),
+                    rs.getInt("version"),
+                    rs.getInt("owner_id")
                 );
             }
         }
@@ -139,7 +141,7 @@ public class NoteDAO {
 
     // Returns the note with that title and version
     public Note getNoteByTitleAndVersion (String title, int version) throws SQLException {
-        String query = "SELECT nv.version_id, nv.content, nv.version, n.note_id, n.owner_id, n.title, n.date_created " +
+        String query = "SELECT nv.version_id, nv.content, nv.version, n.note_id, n.owner_id, n.title, n.data_created " +
                         "FROM notes n " +
                         "JOIN note_versions nv ON n.note_id = nv.note_id " +
                         "WHERE n.title = ? AND nv.version = ?";
@@ -154,11 +156,13 @@ public class NoteDAO {
             if (rs.next()) {
                 return new Note(
                     rs.getInt("note_id"),
-                    rs.getInt("owner_id"),
-                    rs.getInt("version"),
                     rs.getString("title"),
                     rs.getString("content"),
-                    rs.getTimestamp("date_created").toString()
+                    rs.getTimestamp("data_created").toLocalDateTime(),
+                    rs.getTimestamp("date_modified").toLocalDateTime(),
+                    rs.getInt("modified_by"),
+                    rs.getInt("version"),
+                    rs.getInt("owner_id")
                 );
             }
         }
@@ -213,4 +217,38 @@ public class NoteDAO {
             stmt.executeUpdate();
         }
     }
+
+    // Returns a list of all users that can view the note
+    public List<Integer> getNoteViewers(int note_id) throws SQLException {
+        List<Integer> viewers = new ArrayList<>();
+        String query = "SELECT * FROM access_logs WHERE note_id = ? AND user_role = VIEWER";
+        try (Connection conn = DatabaseConnector.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, note_id);
+
+            ResultSet rs = stmt.executeQuery();
+            while(rs.next()) {
+                viewers.add(rs.getInt("user_id"));
+            }
+        }
+
+        return viewers;
+    }
+
+    // Returns a list of all users that can edit the note
+    public List<Integer> getNoteEditors(int note_id) throws SQLException {
+        List<Integer> editors = new ArrayList<>();
+        String query = "SELECT * FROM access_logs WHERE note_id = ? AND user_role = EDITOR";
+        try (Connection conn = DatabaseConnector.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, note_id);
+
+            ResultSet rs = stmt.executeQuery();
+            while(rs.next()) {
+                editors.add(rs.getInt("user_id"));
+            }
+        }
+
+        return editors;
+    } 
 }

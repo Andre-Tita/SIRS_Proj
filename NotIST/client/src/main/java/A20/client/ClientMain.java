@@ -10,8 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
+import com.google.gson.*;
 
 public class ClientMain {
 	private static final String SPACE = " ";
@@ -19,12 +18,12 @@ public class ClientMain {
 	private static final String SIGNUP = "signup";              // signup (user is new)
 	private static final String LOGOUT = "logout";              // logout
     private static final String EXIT = "exit";                  // exit the client app
+
 	private static final String NEW_NOTE = "nnote";             // create a note
 	private static final String READ_NOTE = "rnote";            // read a note
-    private static final String EDIT_NOTE = "enote";
+    private static final String EDIT_NOTE = "enote";            // edit a note
 	private static final String SEE_NOTES = "snotes";           // show the notes and note's ids that the user has access
 	private static final String MY_NOTES = "mnotes";            // show the notes created by the user
-	private static final String GRANT_ACCESS = "gaccess";       // grant access to another user to see the user notes
 	private static final String HELP = "help";                  // show how to use each command
     private final String host = "localhost";
     private final String port = "50052";
@@ -34,6 +33,7 @@ public class ClientMain {
 	private static final String FORMAT_ERROR = "Invalid command or format.\nTry \"help\" to see all the available commands and it's usage.";
 	private static final String USER_NOT_EXIST = "ERROR: Your username/user doesn't exist.";
     private static final String SQL_ERROR = "ERROR: Server SQL error.";
+    private static final String JSON_ERROR = "ERROR: Server JSON error."; 
     private static final String UNKNOWN = "Unknown error.";
     
     NotISTGrpc.NotISTBlockingStub stub;
@@ -149,6 +149,7 @@ public class ClientMain {
     
     private void nnote(String filePath) {
         try {
+
             // Read file content
             String jsonContent = Files.readString(Paths.get(filePath));
             
@@ -161,40 +162,47 @@ public class ClientMain {
                 System.out.println("Invalid JSON structure. Required fields: id, title, note.");
                 return;
             }
+
+            System.out.println(jsonObject.toString());
+
+            NNoteRequest request = NNoteRequest.newBuilder()
+            .setUsername(this.username)
+            .setNote(jsonObject.toString()) // Sending JSON as string
+            .build();
+
+            NNoteResponse response = stub.nnote(request);
+            
+            switch (response.getAck()) {
+                case 0:
+                    System.out.println("Note created with success.");
+                    break;
+            
+                case 1:
+                    debug(USER_NOT_EXIST);
+                    break;
+
+                case 2:
+                    debug("A Note with that title already exists.");
+                    break;
+                
+                case -1:
+                    debug(SQL_ERROR);
+                    break;
+                
+                case -2:
+                    debug(SQL_ERROR);
+                    break;
+                
+                default:
+                    debug(UNKNOWN);
+                    break;
+            }
         } catch (IOException e) {
             System.out.println("Error reading file: " + e.getMessage());
             return;
         } catch (JsonSyntaxException e) {
             System.out.println("Invalid JSON content: " + e.getMessage());
             return;
-        }
-
-        NNoteRequest request = NNoteRequest.newBuilder()
-        .setUsername(this.username)
-        .setNote(jsonObject.toString()) // Sending JSON as string
-        .build();
-
-        NNoteResponse response = stub.nnote(request);
-        switch (response.getAck()) {
-            case 0:
-                System.out.println("Note created with success.");
-                break;
-        
-            case 1:
-                debug(USER_NOT_EXIST);
-                break;
-
-            case 2:
-                debug("A Note with that title already exists.");
-                break;
-            
-            case -1:
-                debug(SQL_ERROR);
-                break;
-            
-            default:
-                debug(UNKNOWN);
-                break;
         }
     }
 
@@ -223,6 +231,33 @@ public class ClientMain {
         }
     }
 
+    private void snotes() {
+        List<String> availableNotes = new ArrayList<>();
+        SNotesRequest request = SNotesRequest.newBuilder().setUsername(this.username).build();
+        SNotesResponse response = stub.snotes(request);
+        switch (response.getAck()) {
+            case 0:
+                availableNotes = response.getNoteTitlesList();
+                System.out.println("Notes you have access to:");
+                for(String note: availableNotes) {
+                    System.out.println(note);
+                }
+                break;
+            case 1:
+                debug(USER_NOT_EXIST);
+                break;
+
+            case -1:
+                debug(SQL_ERROR);
+                break;
+
+            default:
+                debug(UNKNOWN);
+                break;
+        }
+    }
+
+    // #REDO
     private void rnote(String title, int version) {
         RNoteRequest request = RNoteRequest.newBuilder().setUsername(this.username).setTitle(title).setVersion(version).build();
         RNoteResponse response = stub.rnote(request);
@@ -281,67 +316,8 @@ public class ClientMain {
                 break;
         }
     }
-
-    private void snotes() {
-        List<String> availableNotes = new ArrayList<>();
-        SNotesRequest request = SNotesRequest.newBuilder().setUsername(this.username).build();
-        SNotesResponse response = stub.snotes(request);
-        switch (response.getAck()) {
-            case 0:
-                availableNotes = response.getNoteTitlesList();
-                System.out.println("Notes you have access to:");
-                for(String note: availableNotes) {
-                    System.out.println(note);
-                }
-                break;
-            case 1:
-                debug(USER_NOT_EXIST);
-                break;
-
-            case -1:
-                debug(SQL_ERROR);
-                break;
-
-            default:
-                debug(UNKNOWN);
-                break;
-        }
-    }
-
-    private void gaccess(String other_username, String title, String role) {
-        GAccessRequest request = GAccessRequest.newBuilder().setUsername(this.username).setOtherUsername(other_username).setTitle(title).setUserRole(role).build();
-        GAccessResponse response = stub.gaccess(request);
-        switch (response.getAck()) {
-            case 0:
-                System.out.println("Viewer access granted to: " + other_username);
-                break;
-
-            case 1:
-                debug(USER_NOT_EXIST);
-                break;
-
-            case 2:
-                debug("ERROR: Note doesn't exist.");
-                break;
-            
-            case 3:
-                debug("ERROR: You are not the owner of that note.");
-                break;
-
-            case 4:
-                debug("ERROR: other_username doesn't represent an existant user.");
-                break;
-            
-            case -1:
-                debug(SQL_ERROR);
-                break;        
-            
-            default:
-                debug(UNKNOWN);
-                break;
-        }
-    }
     
+    // main loop
     private void main_loop() {
         this.initComms();
 
@@ -427,14 +403,6 @@ public class ClientMain {
                     if(this.loggedin) {
                         if (split.length == 1) {
                             this.snotes();
-                        } else { debug(FORMAT_ERROR); }
-                    } else { debug(NOT_LOGGEDIN); }
-                    break;
-
-                case GRANT_ACCESS:
-                    if(this.loggedin) {
-                        if (split.length == 4) {
-                            this.gaccess(split[1], split[2], split[3]);
                         } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;

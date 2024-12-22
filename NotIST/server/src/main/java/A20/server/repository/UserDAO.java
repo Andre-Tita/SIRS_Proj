@@ -4,6 +4,8 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.checkerframework.checker.units.qual.s;
+
 import A20.server.model.User;
 
 public class UserDAO {
@@ -56,13 +58,39 @@ public class UserDAO {
             if (rs.next()) {
                 return new User(
                     rs.getInt("user_id"),
-                    rs.getString("username"),
-                    "",
-                    ""
+                    rs.getString("username")
                 );
             }
         }
         return null;
+    }
+
+    public User getUserByUserId(int user_id) throws SQLException {
+        String query = "SELECT * FROM users WHERE user_id = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, user_id);
+
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return new User(
+                    rs.getInt("user_id"),
+                    rs.getString("username")
+                );
+            }
+        }
+
+        return null;
+    }
+
+    public List<User> getUsersByUserIds(List<Integer> users_ids) throws SQLException {
+        List<User> users = new ArrayList<>();
+        for(Integer id : users_ids) {
+            users.add(this.getUserByUserId(id));
+        }
+
+        return users;
     }
 
     public void login(int user_id) throws SQLException {

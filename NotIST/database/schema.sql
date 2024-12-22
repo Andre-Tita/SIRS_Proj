@@ -18,7 +18,7 @@ CREATE TABLE notes (
     note_id SERIAL PRIMARY KEY,
     owner_id INT REFERENCES users(user_id),
     title VARCHAR(255) NOT NULL UNIQUE,
-    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    data_created TIMESTAMP
 );
 
 -- Note Versions Table (tracks versions)
@@ -26,9 +26,10 @@ CREATE TABLE note_versions (
     version_id SERIAL PRIMARY KEY,
     note_id INT REFERENCES notes(note_id) ON DELETE CASCADE,
     version INT NOT NULL,
-    content TEXT NOT NULL,
-    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modified_at
+    content TEXT,
+    data_created TIMESTAMP,
+    modified_at TIMESTAMP,
+    modified_by INT NOT NULL,
     UNIQUE(note_id, version) -- Prevent duplicate versions
 );
 
@@ -47,5 +48,5 @@ CREATE TABLE encryption_keys (
     key_id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(user_id),
     key_value BYTEA,
-    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    data_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

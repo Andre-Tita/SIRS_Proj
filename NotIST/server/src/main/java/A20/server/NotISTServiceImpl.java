@@ -6,8 +6,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Stream;
 
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
+import com.google.gson.*;
 
 import A20.*;
 import A20.server.model.*;
@@ -149,34 +148,41 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     responseObserver.onNext(response);
                     responseObserver.onCompleted();
                 } else {
-                    // Extract fields from JSON
-                    int id = noteJson.get("id").getAsInt();
+                    // Extract fields from note JSON
                     String content = noteJson.get("note").getAsString();
-                    String dateCreated = noteJson.get("data_created").getAsString();
-                    String dateModified = noteJson.get("date_modified").getAsString();
-                    int lastModifiedBy = noteJson.get("last_modified_by").getAsInt();
-                    int version = noteJson.get("version").getAsInt();
-                    JsonObject owner = noteJson.getAsJsonObject("owner");
-                    JsonArray editors = noteJson.getAsJsonArray("editors");
                     JsonArray viewers = noteJson.getAsJsonArray("viewers");
+                    JsonArray editors = noteJson.getAsJsonArray("editors");
 
                     // Add the new note to the database
                     Note newNote = new Note(title, content, user.getUserId());
 
                     noteDAO.addNote(newNote);
+                    Note note = noteDAO.getNoteByTitle(title);
+                    
+                    // # Add viewer permissions 
+                    for (JsonElement other_user : viewers) {
+                        int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
+                        noteDAO.grantAccessNote(other_user_id, note.getNoteId(), user.getUserId(), "VIEWER");
+                    }
 
-                    NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build();
+                    // # Add editor permissions 
+                    for (JsonElement other_user : editors) {
+                        int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
+                        noteDAO.grantAccessNote(other_user_id, note.getNoteId(), user.getUserId(), "EDITOR");
+                    }
+
+                    NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build();      // Success
                     responseObserver.onNext(response);
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            NNoteResponse response = NNoteResponse.newBuilder().setAck(-1).build();
+            NNoteResponse response = NNoteResponse.newBuilder().setAck(-1).build();         // Failure
             responseObserver.onNext(response);
 
         } catch (JsonSyntaxException e) {
             System.out.println("Invalid JSON format: " + e.getMessage());
-            NNoteResponse response = NNoteResponse.newBuilder().setAck(-1).build();
+            NNoteResponse response = NNoteResponse.newBuilder().setAck(-2).build();         // Failure
             responseObserver.onNext(response);
 
         }
@@ -210,75 +216,6 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
     }
 
     @Override
-    public void rnote(RNoteRequest request, StreamObserver<RNoteResponse> responseObserver) {
-
-        try {
-            // Checks if user exists
-            User user = userDAO.getUserByUsername(request.getUsername());
-            if (user == null) {
-                RNoteResponse response = RNoteResponse.newBuilder().setAck(1).build(); // Failure
-                responseObserver.onNext(response);
-            } else {
-                // Checks if note exists
-                Note note = noteDAO.getNoteByTitleAndVersion(request.getTitle(), request.getVersion());
-                if (note == null) {
-                    RNoteResponse response = RNoteResponse.newBuilder().setAck(2).build(); // Failure
-                    responseObserver .onNext(response);
-                } else {
-                    // Checks if the user has permission to view the note
-                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "VIEWER")) {
-                        RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
-                        responseObserver .onNext(response);
-                    } else {
-                        RNoteResponse response = RNoteResponse.newBuilder().setAck(3).build(); // Failure
-                        responseObserver .onNext(response);
-                    }
-                }
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-            RNoteResponse response = RNoteResponse.newBuilder().setAck(-1).build(); // Error
-            responseObserver.onNext(response);
-        } 
-        responseObserver.onCompleted(); 
-    }
-
-    @Override 
-    public void enote(ENoteRequest request, StreamObserver<ENoteResponse> responseObserver) {
-        try {
-            // Checks if user exists
-            User user = userDAO.getUserByUsername(request.getUsername());
-            if (user == null) {
-                ENoteResponse response = ENoteResponse.newBuilder().setAck(1).build(); // Failure
-                responseObserver.onNext(response);
-            } else {
-                // Checks if note exists
-                Note note = noteDAO.getNoteByTitle(request.getTitle());
-                if (note == null) {
-                    ENoteResponse response = ENoteResponse.newBuilder().setAck(2).build(); // Failure
-                    responseObserver .onNext(response);
-                } else {
-                    // Checks if the user has permission to edit the note
-                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "EDITOR")) {
-                        ENoteResponse response = ENoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
-                        responseObserver .onNext(response);
-                    } else {
-                        ENoteResponse response = ENoteResponse.newBuilder().setAck(3).build(); // Failure
-                        responseObserver .onNext(response);
-                    }
-                }
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-            ENoteResponse response = ENoteResponse.newBuilder().setAck(-1).build(); // Error
-            responseObserver.onNext(response);
-        } 
-        responseObserver.onCompleted(); 
-    }
-
-    @Override
     public void snotes(SNotesRequest request, StreamObserver<SNotesResponse> responseObserver) {
         try {
             // Checks if user exists
@@ -304,51 +241,88 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
     }
 
     @Override
-    public void gaccess(GAccessRequest request, StreamObserver<GAccessResponse> responseObserver) {
-        
+    public void rnote(RNoteRequest request, StreamObserver<RNoteResponse> responseObserver) {
+
         try {
-            // Checks if user requesting exists
-            User my_user = userDAO.getUserByUsername(request.getUsername());
-
-            if (my_user == null) {
-                // My user doesn't exist
-                GAccessResponse response = GAccessResponse.newBuilder().setAck(1).build(); // Failure
+            // Checks if user exists
+            User user = userDAO.getUserByUsername(request.getUsername());
+            if (user == null) {
+                RNoteResponse response = RNoteResponse.newBuilder().setAck(1).build(); // Failure
                 responseObserver.onNext(response);
-
             } else {
-
                 // Checks if note exists
-                Note note = noteDAO.getNoteByTitle(request.getTitle());
+                Note note = noteDAO.getNoteByTitleAndVersion(request.getTitle(), request.getVersion());
                 if (note == null) {
-                    GAccessResponse response = GAccessResponse.newBuilder().setAck(2).build(); // Failure
-                        responseObserver.onNext(response);
-
+                    RNoteResponse response = RNoteResponse.newBuilder().setAck(2).build(); // Failure
+                    responseObserver .onNext(response);
                 } else {
+                    // Checks if the user has permission to view the note
+                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "VIEWER")) {
+                        List<User> viewers = userDAO.getUsersByUserIds(noteDAO.getNoteViewers(note.getNoteId()));
+                        List<User> editors = userDAO.getUsersByUserIds(noteDAO.getNoteEditors(note.getNoteId()));
 
-                    // Checks if my user is owner of the note
-                    if(!noteDAO.isOwner(my_user.getUserId(), request.getTitle())) {
-                        GAccessResponse response = GAccessResponse.newBuilder().setAck(3).build(); // Failure
-                        responseObserver.onNext(response);
-                    
+                        for (User u : viewers) 
+                            note.addViewer(user);
+
+                        for (User u : editors)
+                            note.addEditor(user);
+
+                        RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setContent(note.toJSON().toString()).build(); // Success
+                        responseObserver .onNext(response);
                     } else {
-
-                        // Checks if other user exists
-                        User other_user = userDAO.getUserByUsername(request.getOtherUsername());
-                        if (other_user == null) {
-                            GAccessResponse response = GAccessResponse.newBuilder().setAck(4).build(); // Failure
-                            responseObserver.onNext(response);
-                        
-                        } else {
-                            noteDAO.grantAccessNote(other_user.getUserId(), note.getNoteId(), my_user.getUserId(), request.getUserRole());
-                            GAccessResponse response = GAccessResponse.newBuilder().setAck(0).build(); // Success
-                            responseObserver.onNext(response);
-                        }
+                        RNoteResponse response = RNoteResponse.newBuilder().setAck(3).build(); // Failure
+                        responseObserver .onNext(response);
                     }
                 }
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
-            GAccessResponse response = GAccessResponse.newBuilder().setAck(-1).build(); // Error
+            RNoteResponse response = RNoteResponse.newBuilder().setAck(-1).build(); // Error
+            responseObserver.onNext(response);
+        }
+        responseObserver.onCompleted();
+    }
+
+    // #REDO - Think on how we are going to save the note changes.
+    @Override 
+    public void enote(ENoteRequest request, StreamObserver<ENoteResponse> responseObserver) {
+        try {
+            // Checks if user exists
+            User user = userDAO.getUserByUsername(request.getUsername());
+            if (user == null) {
+                ENoteResponse response = ENoteResponse.newBuilder().setAck(1).build(); // Failure
+                responseObserver.onNext(response);
+            } else {
+                // Checks if note exists
+                Note note = noteDAO.getNoteByTitle(request.getTitle());
+                if (note == null) {
+                    ENoteResponse response = ENoteResponse.newBuilder().setAck(2).build(); // Failure
+                    responseObserver .onNext(response);
+                } else {
+                    // Checks if the user has permission to edit the note
+                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "EDITOR")) {
+                        List<User> viewers = userDAO.getUsersByUserIds(noteDAO.getNoteViewers(note.getNoteId()));
+                        List<User> editors = userDAO.getUsersByUserIds(noteDAO.getNoteEditors(note.getNoteId()));
+
+                        for (User u : viewers) 
+                            note.addViewer(user);
+
+                        for (User u : editors)
+                            note.addEditor(user);
+
+                        ENoteResponse response = ENoteResponse.newBuilder().setAck(0).setContent(note.toJSON().toString()).build(); // Success
+                        responseObserver .onNext(response);
+                    } else {
+                        ENoteResponse response = ENoteResponse.newBuilder().setAck(3).build(); // Failure
+                        responseObserver .onNext(response);
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            ENoteResponse response = ENoteResponse.newBuilder().setAck(-1).build(); // Error
             responseObserver.onNext(response);
         } 
         responseObserver.onCompleted(); 
