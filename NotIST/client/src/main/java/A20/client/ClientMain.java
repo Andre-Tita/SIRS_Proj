@@ -5,9 +5,8 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
 
+import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 
 import com.google.gson.*;
@@ -147,15 +146,13 @@ public class ClientMain {
         }
     }
     
-    private void nnote(String filePath) {
-        try {
-
-            // Read file content
-            String jsonContent = Files.readString(Paths.get(filePath));
+    private void nnote(String filename) {
+        filename = "src/main/java/A20/client/note1.json";           // #DELETE
+        try  (FileReader fileReader = new FileReader(filename)) {
             
             // Validate JSON structure
             Gson gson = new Gson();
-            JsonObject jsonObject = gson.fromJson(jsonContent, JsonObject.class);
+            JsonObject jsonObject = gson.fromJson(fileReader, JsonObject.class);
     
             // Verify required fields exist
             if (!jsonObject.has("id") || !jsonObject.has("title") || !jsonObject.has("note")) {

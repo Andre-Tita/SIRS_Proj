@@ -103,6 +103,7 @@ message ENoteRequest {
     string title = 2;
 }
 
+// #CHANGE
 message ENoteResponse {
     int32 ack = 1;
     string title = 2;

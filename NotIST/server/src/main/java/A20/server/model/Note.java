@@ -58,8 +58,10 @@ public class Note {
     public int getNoteId() { return this.id; }
     public String getTitle() { return this.title; }
     public String getContent() { return this.content; }
-    public String getDataCreated() { return data_created.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")); }
-    public String getDateModified() { return date_modified.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")); }
+    public LocalDateTime getDataCreated() { return data_created; }
+    public LocalDateTime getDateModified() { return date_modified; }
+    public String getDataCreatedString() { return data_created.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")); }
+    public String getDateModifiedString() { return date_modified.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")); }
     public int getLastModifiedBy() { return this.last_modified_by; }
     public int getVersion() { return this.version; }
     public int getOwnerId() { return this.owner_id; }

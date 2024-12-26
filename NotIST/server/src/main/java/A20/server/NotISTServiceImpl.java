@@ -122,7 +122,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
     // Notes Operations
     @Override
     public void nnote(NNoteRequest request, StreamObserver<NNoteResponse> responseObserver) {
-        System.out.println("Received username: " + request.getUsername() + " | note: " + request.getNote());
+        System.out.println("Received nnote, username: " + request.getUsername() + " | note: " + request.getNote());
 
         try {
             // Check if user exists and is logged in
@@ -134,6 +134,8 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                 responseObserver.onNext(response);
                 responseObserver.onCompleted();
             } else {
+                System.out.println("User exists !\n");
+
                 // Parse the JSON note content
                 Gson gson = new Gson();
                 JsonObject noteJson = gson.fromJson(request.getNote(), JsonObject.class);
@@ -157,15 +159,27 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     Note newNote = new Note(title, content, user.getUserId());
 
                     noteDAO.addNote(newNote);
+                    System.out.println("Note added !\n");
                     Note note = noteDAO.getNoteByTitle(title);
+                    System.out.println("Got the note from db: ");
+                    System.out.println(note);
                     
-                    // # Add viewer permissions 
+                    // Add viewer permissions 
                     for (JsonElement other_user : viewers) {
-                        int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
-                        noteDAO.grantAccessNote(other_user_id, note.getNoteId(), user.getUserId(), "VIEWER");
+                        try {
+                            // if it cant add the user prob the user isn't registered
+                            int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
+                            noteDAO.grantAccessNote(other_user_id, note.getNoteId(), user.getUserId(), "VIEWER");
+
+                        } catch (SQLException e) {
+                            e.printStackTrace();
+                            NNoteResponse response = NNoteResponse.newBuilder().setAck(-3).build();         // Failure
+                            responseObserver.onNext(response);
+                            return;
+                        }
                     }
 
-                    // # Add editor permissions 
+                    // Add editor permissions 
                     for (JsonElement other_user : editors) {
                         int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
                         noteDAO.grantAccessNote(other_user_id, note.getNoteId(), user.getUserId(), "EDITOR");
@@ -252,12 +266,14 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
             } else {
                 // Checks if note exists
                 Note note = noteDAO.getNoteByTitleAndVersion(request.getTitle(), request.getVersion());
+                System.out.println("Note: " + note + "\n");
                 if (note == null) {
                     RNoteResponse response = RNoteResponse.newBuilder().setAck(2).build(); // Failure
                     responseObserver .onNext(response);
                 } else {
                     // Checks if the user has permission to view the note
-                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "VIEWER")) {
+                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "VIEWER") || noteDAO.hasAccess(user.getUserId(), note.getTitle(), "EDITOR")) {
+                        System.out.println("User has access!\n");
                         List<User> viewers = userDAO.getUsersByUserIds(noteDAO.getNoteViewers(note.getNoteId()));
                         List<User> editors = userDAO.getUsersByUserIds(noteDAO.getNoteEditors(note.getNoteId()));
 
@@ -267,7 +283,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                         for (User u : editors)
                             note.addEditor(user);
 
-                        RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setContent(note.toJSON().toString()).build(); // Success
+                        RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
                         responseObserver .onNext(response);
                     } else {
                         RNoteResponse response = RNoteResponse.newBuilder().setAck(3).build(); // Failure
