@@ -32,6 +32,20 @@ public class Note {
         this.editors = new ArrayList<>();
     }
 
+    // When edited
+    public Note(int id, String title, String content, String data_created, int last_modified_by, int version, int owner_id) {
+        this.id = id;
+        this.title = title;
+        this.content = content;
+        this.data_created = LocalDateTime.parse(data_created, DateTimeFormatter.ISO_DATE_TIME);
+        this.date_modified = LocalDateTime.now();
+        this.last_modified_by = last_modified_by; 
+        this.version = version;
+        this.owner_id = owner_id;
+        this.viewers = new ArrayList<>();
+        this.editors = new ArrayList<>();
+    }
+
     // To receive from db
     public Note(int id, String title, String content, LocalDateTime data_created, LocalDateTime date_modified, int last_modified_by, int version, int owner_id) {
         this.id = id;

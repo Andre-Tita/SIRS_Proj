@@ -164,7 +164,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     System.out.println("Got the note from db: ");
                     System.out.println(note);
                     
-                    // Add viewer permissions 
+                    // Add viewer permissions
                     for (JsonElement other_user : viewers) {
                         try {
                             // if it cant add the user prob the user isn't registered
@@ -173,7 +173,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
                         } catch (SQLException e) {
                             e.printStackTrace();
-                            NNoteResponse response = NNoteResponse.newBuilder().setAck(-3).build();         // Failure
+                            NNoteResponse response = NNoteResponse.newBuilder().setAck(-1).build();         // Failure
                             responseObserver.onNext(response);
                             return;
                         }
@@ -181,8 +181,16 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
                     // Add editor permissions 
                     for (JsonElement other_user : editors) {
-                        int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
-                        noteDAO.grantAccessNote(other_user_id, note.getNoteId(), user.getUserId(), "EDITOR");
+                        try {
+                            int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
+                            noteDAO.grantAccessNote(other_user_id, note.getNoteId(), user.getUserId(), "EDITOR");
+                        
+                        } catch (SQLException e) {
+                            e.printStackTrace();
+                            NNoteResponse response = NNoteResponse.newBuilder().setAck(-1).build();         // Failure
+                            responseObserver.onNext(response);
+                            return;
+                        }
                     }
 
                     NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build();      // Success
@@ -300,20 +308,20 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
         responseObserver.onCompleted();
     }
 
-    // #REDO - Think on how we are going to save the note changes.
-    @Override 
-    public void enote(ENoteRequest request, StreamObserver<ENoteResponse> responseObserver) {
+    @Override
+    public void enoteP1(ENotePhase1Request request, StreamObserver<ENotePhase1Response> responseObserver) {
+        System.out.println("Received a phase 1 edit note.");
         try {
             // Checks if user exists
             User user = userDAO.getUserByUsername(request.getUsername());
             if (user == null) {
-                ENoteResponse response = ENoteResponse.newBuilder().setAck(1).build(); // Failure
+                ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(1).build(); // Failure
                 responseObserver.onNext(response);
             } else {
                 // Checks if note exists
                 Note note = noteDAO.getNoteByTitle(request.getTitle());
                 if (note == null) {
-                    ENoteResponse response = ENoteResponse.newBuilder().setAck(2).build(); // Failure
+                    ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(2).build(); // Failure
                     responseObserver .onNext(response);
                 } else {
                     // Checks if the user has permission to edit the note
@@ -322,15 +330,15 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                         List<User> editors = userDAO.getUsersByUserIds(noteDAO.getNoteEditors(note.getNoteId()));
 
                         for (User u : viewers) 
-                            note.addViewer(user);
+                            note.addViewer(u);
 
                         for (User u : editors)
-                            note.addEditor(user);
+                            note.addEditor(u);
 
-                        ENoteResponse response = ENoteResponse.newBuilder().setAck(0).setContent(note.toJSON().toString()).build(); // Success
+                        ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(0).setNote((note.toJSON()).toString()).build(); // Success
                         responseObserver .onNext(response);
                     } else {
-                        ENoteResponse response = ENoteResponse.newBuilder().setAck(3).build(); // Failure
+                        ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(3).build(); // Failure
                         responseObserver .onNext(response);
                     }
                 }
@@ -338,9 +346,79 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
         } catch (SQLException e) {
             e.printStackTrace();
-            ENoteResponse response = ENoteResponse.newBuilder().setAck(-1).build(); // Error
+            ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(-1).build(); // Error
             responseObserver.onNext(response);
         } 
         responseObserver.onCompleted(); 
+    }
+
+    @Override
+    public void enoteP2(ENotePhase2Request request, StreamObserver<ENotePhase2Response> responseObserver) {
+        System.out.println("Received a phase 2 edit note.");
+        try {
+            // Convert the JSON.toString() to a Note
+            Gson gson = new Gson();
+            JsonObject noteJson = gson.fromJson(request.getNote(), JsonObject.class);
+            Note note = new Note(
+                noteJson.get("id").getAsInt(),
+                noteJson.get("title").getAsString(),
+                noteJson.get("note").getAsString(),
+                noteJson.get("data_created").getAsString(),
+                noteJson.get("last_modified_by").getAsInt(),
+                noteJson.get("version").getAsInt() + 1,
+                noteJson.getAsJsonObject("owner").get("id").getAsInt()
+            );
+            
+            // Remove all the accesses user's have to the note to then add them (in case of an update)
+            noteDAO.removeAccesses(note.getNoteId());
+
+            JsonArray viewers = noteJson.getAsJsonArray("viewers");
+            JsonArray editors = noteJson.getAsJsonArray("editors");
+
+            // Add viewer permissions
+            for (JsonElement other_user : viewers) {
+                try {
+                    // if it cant add the user prob the user isn't registered
+                    int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
+                    noteDAO.grantAccessNote(other_user_id, note.getNoteId(), note.getOwnerId(), "VIEWER");
+
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(-1).build();         // Failure
+                    responseObserver.onNext(response);
+                    return;
+                }
+            }
+
+            // Add editor permissions 
+            for (JsonElement other_user : editors) {
+                try {
+                    int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
+                    noteDAO.grantAccessNote(other_user_id, note.getNoteId(), note.getOwnerId(), "EDITOR");
+                
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(-1).build();         // Failure
+                    responseObserver.onNext(response);
+                    return;
+                }
+            }
+
+            noteDAO.insertNote(note);
+
+            ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(0).build();         // Success
+            responseObserver.onNext(response);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(-1).build();         // Failure
+            responseObserver.onNext(response);
+
+        } catch (JsonSyntaxException e) {
+            System.out.println("Invalid JSON format: " + e.getMessage());
+            ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(-2).build();         // Failure
+            responseObserver.onNext(response);
+
+        }
     }
 }

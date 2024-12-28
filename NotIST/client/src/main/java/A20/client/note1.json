@@ -1,25 +1,25 @@
 {
+  "id": 1,
+  "title": "ExampleDocument",
+  "note": "This is an example document.",
+  "data_created": "2022-01-01T12:00:00Z",
+  "date_modified": "2022-01-02T12:00:00Z",
+  "last_modified_by": 1,
+  "version": 1,
+  "owner": {
     "id": 1,
-    "title": "ExampleDocument",
-    "note": "This is an example document.",
-    "data_created": "2022-01-01T12:00:00Z",
-    "date_modified": "2022-01-02T12:00:00Z",
-    "last_modified_by": 1,
-    "version": 1,
-    "owner": {
-      "id": 1,
-      "username": "a"
-    },
-    "editors": [
-      {
-        "id": 2,
-        "username": "b"
-      }
-    ],
-    "viewers": [
-      {
-        "id": 3,
-        "username": "c"
-      }
-    ]
-  }
+    "username": "a"
+  },
+  "editors": [
+    {
+      "id": 2,
+      "username": "b"
+    }
+  ],
+  "viewers": [
+    {
+      "id": 3,
+      "username": "c"
+    }
+  ]
+}

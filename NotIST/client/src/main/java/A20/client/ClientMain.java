@@ -5,6 +5,8 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
@@ -49,6 +51,8 @@ public class ClientMain {
 		clientMain.main_loop();
 	}
 
+    // Auxiliar functions
+
     /** Helper method to print debug messages. */
 	private static void debug(String debugMessage) {
 		System.err.println(debugMessage);
@@ -68,6 +72,81 @@ public class ClientMain {
 		channel.shutdownNow();
     }
     
+    // Function to delete the file
+    private static void deleteFile(String filePath) {
+        File file = new File(filePath);
+        if (file.delete()) {
+            System.out.println("File deleted: " + filePath);
+        } else {
+            System.err.println("Failed to delete the file: " + filePath);
+        }
+    }
+
+    private void edit_note(String noteToString) {
+        Gson gson = new Gson();
+        JsonObject noteJson = JsonParser.parseString(noteToString).getAsJsonObject();
+
+        // Write JSON to a temporary file
+        try (FileWriter fileWriter = new FileWriter("src/main/java/A20/client/editable.json")) {
+            gson.toJson(noteJson, fileWriter);
+        } catch (IOException e) {
+            System.err.println("Error creating file: " + e.getMessage());
+            return;
+        }
+
+        // Try to open a text editor
+        try {
+            // Open file in the default text editor
+            ProcessBuilder processBuilder = new ProcessBuilder("notepad", "src/main/java/A20/client/editable.json"); // Use "nano", "vim", etc., for Linux/Mac
+            Process process = processBuilder.start();
+
+            // Wait for the editor to close
+            process.waitFor();
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error opening editor: " + e.getMessage());
+            return;
+        }
+
+        try  (FileReader fileReader = new FileReader("src/main/java/A20/client/editable.json")) {
+            // Validate JSON structure
+            JsonObject newNoteJson = gson.fromJson(fileReader, JsonObject.class);
+
+            System.out.println("New note: \n" + newNoteJson.toString());
+
+            // # ADD A VERIFICATION ON THE FIELDS THAT CAN'T BE TOUCHED
+            
+            ENotePhase2Request request = ENotePhase2Request.newBuilder().setNote(newNoteJson.toString()).build();
+            ENotePhase2Response response = stub.enoteP2(request);
+
+            switch (response.getAck()) {
+                case 0:
+                    System.out.println("Note edited with success.");
+                    break;
+                
+                case -1:
+                    debug(SQL_ERROR);
+    
+                case -2:
+                    debug(JSON_ERROR);
+    
+                default:
+                    debug(UNKNOWN);
+                    break;
+            }
+            
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+            return;
+        } catch (JsonSyntaxException e) {
+            System.out.println("Invalid JSON content: " + e.getMessage());
+            return;
+        }
+
+        deleteFile("src/main/java/A20/client/editable.json");
+    }
+
+    // Main functions
+
 	private void login(String username, String password) {
         LoginRequest request = LoginRequest.newBuilder().setUsername(username).setPassword(password).build();
         LoginResponse response = stub.login(request);
@@ -156,7 +235,7 @@ public class ClientMain {
     
             // Verify required fields exist
             if (!jsonObject.has("id") || !jsonObject.has("title") || !jsonObject.has("note")) {
-                System.out.println("Invalid JSON structure. Required fields: id, title, note.");
+                System.err.println("Invalid JSON structure. Required fields: id, title, note.");
                 return;
             }
 
@@ -187,7 +266,7 @@ public class ClientMain {
                     break;
                 
                 case -2:
-                    debug(SQL_ERROR);
+                    debug(JSON_ERROR);
                     break;
                 
                 default:
@@ -254,7 +333,6 @@ public class ClientMain {
         }
     }
 
-    // #REDO
     private void rnote(String title, int version) {
         RNoteRequest request = RNoteRequest.newBuilder().setUsername(this.username).setTitle(title).setVersion(version).build();
         RNoteResponse response = stub.rnote(request);
@@ -285,12 +363,12 @@ public class ClientMain {
     }
 
     private void enote(String title) {
-        ENoteRequest request = ENoteRequest.newBuilder().setUsername(this.username).setTitle(title).build();
-        ENoteResponse response = stub.enote(request);
+        ENotePhase1Request request = ENotePhase1Request.newBuilder().setUsername(this.username).setTitle(title).build();
+        ENotePhase1Response response = stub.enoteP1(request);
         switch (response.getAck()) {
             case 0:
-                System.out.println("Opening note...");
-                // # TODO open text editor with the note.
+                System.out.println("Received: " + response.getNote());  //#DELETE
+                edit_note(response.getNote());
                 break;
         
             case 1:
@@ -313,7 +391,7 @@ public class ClientMain {
                 break;
         }
     }
-    
+
     // main loop
     private void main_loop() {
         this.initComms();
@@ -390,8 +468,8 @@ public class ClientMain {
 
                 case EDIT_NOTE:
                     if (this.loggedin) {
-                        if (split.length == 3) {
-
+                        if (split.length == 2) {
+                            this.enote(split[1]);
                         } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;

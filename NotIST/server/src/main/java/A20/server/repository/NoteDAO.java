@@ -84,7 +84,6 @@ public class NoteDAO {
             }
         }
     }
-    
 
     // Notes a certain user has access to
     public List<String> getUsersAccessNotes(int user_id) throws SQLException {
@@ -285,4 +284,31 @@ public class NoteDAO {
 
         return editors;
     } 
+
+    public void removeAccesses(int note_id) throws SQLException {
+        String query = "DELETE FROM access_logs WHERE note_id = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, note_id);
+
+            stmt.executeUpdate();
+        }
+    }
+
+    public void insertNote(Note note) throws SQLException {
+        String query = "INSERT INTO note_versions "+
+        "(note_id, version, content, data_created, modified_at, modified_by) " +
+        "VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DatabaseConnector.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, note.getNoteId());
+            stmt.setInt(2, note.getVersion());
+            stmt.setString(3, note.getContent());
+            stmt.setTimestamp(4, Timestamp.valueOf(note.getDataCreated()));
+            stmt.setTimestamp(5, Timestamp.valueOf(note.getDateModified()));
+            stmt.setInt(6, note.getLastModifiedBy());
+            
+            stmt.executeUpdate();
+        }
+    }
 }

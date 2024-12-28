@@ -97,18 +97,24 @@ message RNoteResponse {
     string content = 2;
 }
 
-// edit note operation
-message ENoteRequest {
+// edit note operation phase 1, sends the note to the user
+message ENotePhase1Request {
     string username = 1;
     string title = 2;
 }
 
-// #CHANGE
-message ENoteResponse {
+message ENotePhase1Response {
     int32 ack = 1;
-    string title = 2;
-    int32 version = 3;
-    string content = 4;
+    string note = 2;
+}
+
+// edit note phase 2, receives the edited note from the user
+message ENotePhase2Request {
+    string note = 1;
+}
+
+message ENotePhase2Response {
+    int32 ack = 1;
 }
 
 // service
@@ -120,6 +126,7 @@ service NotIST {
     rpc mnote(MNoteRequest) returns (MNoteResponse);
     rpc snotes(SNotesRequest) returns (SNotesResponse);
     rpc rnote(RNoteRequest) returns (RNoteResponse);
-    rpc enote(ENoteRequest) returns (ENoteResponse);
+    rpc enoteP1(ENotePhase1Request) returns (ENotePhase1Response);
+    rpc enoteP2(ENotePhase2Request) returns (ENotePhase2Response);
     rpc gaccess(GAccessRequest) returns (GAccessResponse);
 }
