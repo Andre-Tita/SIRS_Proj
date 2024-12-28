@@ -4,6 +4,8 @@ import A20.*;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
+import io.grpc.netty.*;
+import io.netty.handler.ssl.SslContext;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -26,7 +28,7 @@ public class ClientMain {
 	private static final String SEE_NOTES = "snotes";           // show the notes and note's ids that the user has access
 	private static final String MY_NOTES = "mnotes";            // show the notes created by the user
 	private static final String HELP = "help";                  // show how to use each command
-    private final String host = "localhost";
+    private final String host = "127.0.0.1";
     private final String port = "50052";
 
 	private static final String NOT_LOGGEDIN = "You are not logged in. Type \"help\" to see all the available commands and it's usage.";
@@ -60,11 +62,25 @@ public class ClientMain {
 
     private void initComms() {
         final String target = host + ":" + port;
-		debug("Target: " + target);
+        debug("Target: " + target);
 
-		// #TODO: We use plaintext communication because we do not have certificates (change).
-		channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
-		stub = NotISTGrpc.newBlockingStub(channel);
+        try {
+            // Load the server certificate
+            File certFile = new File("src/main/java/A20/client/server.crt");
+            SslContext sslContext = GrpcSslContexts.forClient()
+                    .trustManager(certFile)
+                    .build();
+
+            // Create a channel with TLS enabled
+            channel = NettyChannelBuilder.forTarget(target)
+                    .sslContext(sslContext)
+                    .build();
+
+            stub = NotISTGrpc.newBlockingStub(channel);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Failed to initialize TLS for client.");
+        }
     }
 
     private void endComms() {
@@ -83,7 +99,7 @@ public class ClientMain {
     }
 
     private void edit_note(String noteToString) {
-        Gson gson = new Gson();
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
         JsonObject noteJson = JsonParser.parseString(noteToString).getAsJsonObject();
 
         // Write JSON to a temporary file
@@ -97,11 +113,22 @@ public class ClientMain {
         // Try to open a text editor
         try {
             // Open file in the default text editor
-            ProcessBuilder processBuilder = new ProcessBuilder("notepad", "src/main/java/A20/client/editable.json"); // Use "nano", "vim", etc., for Linux/Mac
+            ProcessBuilder processBuilder = new ProcessBuilder("code", "src/main/java/A20/client/editable.json"); // Use "nano", "vim", etc., for Linux/Mac
             Process process = processBuilder.start();
 
             // Wait for the editor to close
-            process.waitFor();
+            File editableFile = new File("src/main/java/A20/client/editable.json");
+            long lastModified = editableFile.lastModified();
+
+            System.out.println("Waiting for edits...");
+
+            while (true) {
+                if (editableFile.lastModified() > lastModified) {
+                    System.out.println("File has been modified.");
+                    break;
+                }
+                Thread.sleep(1000); // Check every second
+            }
         } catch (IOException | InterruptedException e) {
             System.err.println("Error opening editor: " + e.getMessage());
             return;

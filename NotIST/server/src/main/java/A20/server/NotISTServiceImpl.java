@@ -335,7 +335,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                         for (User u : editors)
                             note.addEditor(u);
 
-                        ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(0).setNote((note.toJSON()).toString()).build(); // Success
+                        ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(0).setNote((note.toJSON((userDAO.getUserByUserId(note.getOwnerId())).getUsername())).toString()).build(); // Success
                         responseObserver .onNext(response);
                     } else {
                         ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(3).build(); // Failure
@@ -354,19 +354,21 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
     @Override
     public void enoteP2(ENotePhase2Request request, StreamObserver<ENotePhase2Response> responseObserver) {
-        System.out.println("Received a phase 2 edit note.");
+        System.out.println("Received a phase 2 edit note. With note: " + request.getNote());
         try {
             // Convert the JSON.toString() to a Note
             Gson gson = new Gson();
             JsonObject noteJson = gson.fromJson(request.getNote(), JsonObject.class);
+            JsonObject owner = noteJson.getAsJsonObject("owner");
+            System.out.println(owner);
             Note note = new Note(
                 noteJson.get("id").getAsInt(),
                 noteJson.get("title").getAsString(),
                 noteJson.get("note").getAsString(),
                 noteJson.get("data_created").getAsString(),
                 noteJson.get("last_modified_by").getAsInt(),
-                noteJson.get("version").getAsInt() + 1,
-                noteJson.getAsJsonObject("owner").get("id").getAsInt()
+                (noteJson.get("version").getAsInt()) + 1,
+                (noteJson.getAsJsonObject("owner")).get("id").getAsInt()
             );
             
             // Remove all the accesses user's have to the note to then add them (in case of an update)
@@ -420,5 +422,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
             responseObserver.onNext(response);
 
         }
+
+        responseObserver.onCompleted();
     }
 }

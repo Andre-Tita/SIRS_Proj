@@ -112,7 +112,7 @@ public class Note {
             "ownerId =" + this.owner_id;
     }
 
-    public JsonObject toJSON() {
+    public JsonObject toJSON(String owner_username) {
         JsonObject noteJson = new JsonObject();
         JsonArray viewersArray = new JsonArray();
         JsonArray editorsArray = new JsonArray();
@@ -120,13 +120,18 @@ public class Note {
         // Basic fields
         noteJson.addProperty("id", this.id);
         noteJson.addProperty("title", this.title);
-        noteJson.addProperty("content", this.content);
+        noteJson.addProperty("note", this.content);
         noteJson.addProperty("data_created", this.data_created.format(DateTimeFormatter.ISO_DATE_TIME));
         noteJson.addProperty("date_modified", this.date_modified.format(DateTimeFormatter.ISO_DATE_TIME));
         noteJson.addProperty("last_modified_by", this.last_modified_by);
         noteJson.addProperty("version", this.version);
-        noteJson.addProperty("owner_id", this.owner_id);
-    
+
+        // Add owner JsonObject
+        JsonObject ownerJson = new JsonObject();
+        ownerJson.addProperty("id", this.owner_id);
+        ownerJson.addProperty("username", owner_username);
+        noteJson.add("owner", ownerJson);
+        
         // Add viewers to JsonArray
         for (User viewer : this.viewers) {
             JsonObject viewerJson = new JsonObject();
@@ -144,8 +149,8 @@ public class Note {
         }
     
         // Add arrays to noteJson
-        noteJson.add("viewers", viewersArray);
         noteJson.add("editors", editorsArray);
+        noteJson.add("viewers", viewersArray);
     
         return noteJson;
     }
