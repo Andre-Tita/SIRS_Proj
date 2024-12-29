@@ -45,7 +45,7 @@ public class ClientMain {
     private String username;
     private boolean loggedin;
     private String pubKey;
-    private Map<Integer, String> client_keys = new HashMap<>(); // # Change String to public key
+    private Map<Integer, String> client_keys = new HashMap<>();         // # Change String to public key
 
     public static void main(String[] args) {
 		// Main loop
@@ -98,13 +98,29 @@ public class ClientMain {
         }
     }
 
+    // Function to create a "mini-note"
+    private JsonObject createMiniNote(JsonObject note, boolean o) {
+        JsonObject miniNote = new JsonObject();
+        miniNote.addProperty("note", note.get("note").getAsString());
+
+        if (o) {
+            miniNote.add("editors", note.getAsJsonArray("editors"));
+            miniNote.add("viewers", note.getAsJsonArray("viewers"));
+        }
+
+        return miniNote;
+    }
+
     private void edit_note(String noteToString) {
+        String tmpPath = "src/main/java/A20/client/editable.json";
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         JsonObject noteJson = JsonParser.parseString(noteToString).getAsJsonObject();
 
         // Write JSON to a temporary file
-        try (FileWriter fileWriter = new FileWriter("src/main/java/A20/client/editable.json")) {
-            gson.toJson(noteJson, fileWriter);
+        try (FileWriter fileWriter = new FileWriter(tmpPath)) {
+            gson.toJson(createMiniNote(noteJson,
+            this.username.equals((noteJson.getAsJsonObject("owner")).get("username").getAsString())),
+            fileWriter);
         } catch (IOException e) {
             System.err.println("Error creating file: " + e.getMessage());
             return;
@@ -113,11 +129,12 @@ public class ClientMain {
         // Try to open a text editor
         try {
             // Open file in the default text editor
-            ProcessBuilder processBuilder = new ProcessBuilder("code", "src/main/java/A20/client/editable.json"); // Use "nano", "vim", etc., for Linux/Mac
+            System.out.println("Opening: " + noteJson.get("title").getAsString());
+            ProcessBuilder processBuilder = new ProcessBuilder("code", tmpPath);   // Code must have auto-save disabled !
             Process process = processBuilder.start();
 
             // Wait for the editor to close
-            File editableFile = new File("src/main/java/A20/client/editable.json");
+            File editableFile = new File(tmpPath);
             long lastModified = editableFile.lastModified();
 
             System.out.println("Waiting for edits...");
@@ -134,15 +151,20 @@ public class ClientMain {
             return;
         }
 
-        try  (FileReader fileReader = new FileReader("src/main/java/A20/client/editable.json")) {
+        try  (FileReader fileReader = new FileReader(tmpPath)) {
             // Validate JSON structure
-            JsonObject newNoteJson = gson.fromJson(fileReader, JsonObject.class);
+            JsonObject noteRead = gson.fromJson(fileReader, JsonObject.class);
+            System.out.println("New read: \n" + noteRead.toString());
 
-            System.out.println("New note: \n" + newNoteJson.toString());
-
-            // # ADD A VERIFICATION ON THE FIELDS THAT CAN'T BE TOUCHED
+            noteJson.addProperty("note", noteRead.get("note").getAsString());
             
-            ENotePhase2Request request = ENotePhase2Request.newBuilder().setNote(newNoteJson.toString()).build();
+            // Owner can change the viewers and editors
+            if (this.username.equals((noteJson.getAsJsonObject("owner")).get("username").getAsString())) {
+                noteJson.add("editors", noteRead.getAsJsonArray("editors"));
+                noteJson.add("viewers", noteRead.getAsJsonArray("viewers"));
+            }
+
+            ENotePhase2Request request = ENotePhase2Request.newBuilder().setUsername(this.username).setNote(noteJson.toString()).build();
             ENotePhase2Response response = stub.enoteP2(request);
 
             switch (response.getAck()) {
@@ -169,7 +191,7 @@ public class ClientMain {
             return;
         }
 
-        deleteFile("src/main/java/A20/client/editable.json");
+        deleteFile(tmpPath);
     }
 
     // Main functions
@@ -253,8 +275,9 @@ public class ClientMain {
     }
     
     private void nnote(String filename) {
-        filename = "src/main/java/A20/client/note1.json";           // #DELETE
-        try  (FileReader fileReader = new FileReader(filename)) {
+        String filepath = "src/main/java/A20/client/";
+        
+        try  (FileReader fileReader = new FileReader(filepath + filename)) {
             
             // Validate JSON structure
             Gson gson = new Gson();
@@ -394,7 +417,6 @@ public class ClientMain {
         ENotePhase1Response response = stub.enoteP1(request);
         switch (response.getAck()) {
             case 0:
-                System.out.println("Received: " + response.getNote());  //#DELETE
                 edit_note(response.getNote());
                 break;
         
@@ -409,12 +431,17 @@ public class ClientMain {
             case 3:
                 debug("ERROR: You don't have access to that note.");
                 break;
+            
+            case 4:
+                debug("ERROR: The note is being accessed by other user.");
+                break;
 
             case -1:
                 debug(SQL_ERROR);
                 break;
 
             default:
+                debug(UNKNOWN);
                 break;
         }
     }

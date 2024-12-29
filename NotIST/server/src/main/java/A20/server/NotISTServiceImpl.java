@@ -324,22 +324,31 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(2).build(); // Failure
                     responseObserver .onNext(response);
                 } else {
-                    // Checks if the user has permission to edit the note
-                    if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "EDITOR")) {
-                        List<User> viewers = userDAO.getUsersByUserIds(noteDAO.getNoteViewers(note.getNoteId()));
-                        List<User> editors = userDAO.getUsersByUserIds(noteDAO.getNoteEditors(note.getNoteId()));
-
-                        for (User u : viewers) 
-                            note.addViewer(u);
-
-                        for (User u : editors)
-                            note.addEditor(u);
-
-                        ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(0).setNote((note.toJSON((userDAO.getUserByUserId(note.getOwnerId())).getUsername())).toString()).build(); // Success
+                    // Checks if the note is locked for other person to write on it
+                    if (noteDAO.isLocked(note.getNoteId())) {
+                        ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(4).build(); // Failure
                         responseObserver .onNext(response);
                     } else {
-                        ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(3).build(); // Failure
-                        responseObserver .onNext(response);
+                        // Checks if the user has permission to edit the note
+                        if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "EDITOR")) {
+                            // Locks the note so no more users can edit it
+                            noteDAO.lockNote(note.getNoteId(), true);
+
+                            List<User> viewers = userDAO.getUsersByUserIds(noteDAO.getNoteViewers(note.getNoteId()));
+                            List<User> editors = userDAO.getUsersByUserIds(noteDAO.getNoteEditors(note.getNoteId()));
+
+                            for (User u : viewers) 
+                                note.addViewer(u);
+
+                            for (User u : editors)
+                                note.addEditor(u);
+
+                            ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(0).setNote((note.toJSON((userDAO.getUserByUserId(note.getOwnerId())).getUsername())).toString()).build(); // Success
+                            responseObserver .onNext(response);
+                        } else {
+                            ENotePhase1Response response = ENotePhase1Response.newBuilder().setAck(3).build(); // Failure
+                            responseObserver .onNext(response);
+                        }
                     }
                 }
             }
@@ -371,42 +380,42 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                 (noteJson.getAsJsonObject("owner")).get("id").getAsInt()
             );
             
-            // Remove all the accesses user's have to the note to then add them (in case of an update)
-            noteDAO.removeAccesses(note.getNoteId());
+            if (request.getUsername().equals((noteJson.getAsJsonObject("owner")).get("username").getAsString())) {
+                // Remove all the accesses user's have to the note to then add them (in case of an update)
+                noteDAO.removeAccesses(note.getNoteId());
 
-            JsonArray viewers = noteJson.getAsJsonArray("viewers");
-            JsonArray editors = noteJson.getAsJsonArray("editors");
+                // Add viewer permissions
+                for (JsonElement other_user : noteJson.getAsJsonArray("viewers")) {
+                    try {
+                        // if it cant add the user prob the user isn't registered
+                        int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
+                        noteDAO.grantAccessNote(other_user_id, note.getNoteId(), note.getOwnerId(), "VIEWER");
 
-            // Add viewer permissions
-            for (JsonElement other_user : viewers) {
-                try {
-                    // if it cant add the user prob the user isn't registered
-                    int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
-                    noteDAO.grantAccessNote(other_user_id, note.getNoteId(), note.getOwnerId(), "VIEWER");
-
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                    ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(-1).build();         // Failure
-                    responseObserver.onNext(response);
-                    return;
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                        ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(-1).build();         // Failure
+                        responseObserver.onNext(response);
+                        return;
+                    }
                 }
-            }
 
-            // Add editor permissions 
-            for (JsonElement other_user : editors) {
-                try {
-                    int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
-                    noteDAO.grantAccessNote(other_user_id, note.getNoteId(), note.getOwnerId(), "EDITOR");
-                
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                    ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(-1).build();         // Failure
-                    responseObserver.onNext(response);
-                    return;
+                // Add editor permissions
+                for (JsonElement other_user : noteJson.getAsJsonArray("editors")) {
+                    try {
+                        int other_user_id = other_user.getAsJsonObject().get("id").getAsInt();
+                        noteDAO.grantAccessNote(other_user_id, note.getNoteId(), note.getOwnerId(), "EDITOR");
+                    
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                        ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(-1).build();         // Failure
+                        responseObserver.onNext(response);
+                        return;
+                    }
                 }
             }
 
             noteDAO.insertNote(note);
+            noteDAO.lockNote(note.getNoteId(), false);
 
             ENotePhase2Response response = ENotePhase2Response.newBuilder().setAck(0).build();         // Success
             responseObserver.onNext(response);

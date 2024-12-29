@@ -18,7 +18,8 @@ CREATE TABLE notes (
     note_id SERIAL PRIMARY KEY,
     owner_id INT REFERENCES users(user_id),
     title VARCHAR(255) NOT NULL UNIQUE,
-    data_created TIMESTAMP
+    data_created TIMESTAMP,
+    write_lock BOOLEAN
 );
 
 -- Note Versions Table (tracks versions)

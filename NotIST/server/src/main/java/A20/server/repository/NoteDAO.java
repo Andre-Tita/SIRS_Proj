@@ -9,7 +9,7 @@ public class NoteDAO {
 
     // Create a note
     public void addNote(Note note) throws SQLException {
-        String noteQuery = "INSERT INTO notes (title, owner_id, data_created) VALUES (?, ?, ?) " +
+        String noteQuery = "INSERT INTO notes (title, owner_id, data_created, write_lock) VALUES (?, ?, ?, FALSE) " +
                            "ON CONFLICT (title) DO NOTHING RETURNING note_id";
         String versionQuery = "INSERT INTO note_versions (note_id, version, content, data_created, modified_at, modified_by) " +
                               "VALUES (?, ?, ?, ?, ?, ?)";
@@ -285,6 +285,7 @@ public class NoteDAO {
         return editors;
     } 
 
+    // Removes all accesses (viewer/editor) from a certain note
     public void removeAccesses(int note_id) throws SQLException {
         String query = "DELETE FROM access_logs WHERE note_id = ?";
         try (Connection conn = DatabaseConnector.getConnection();
@@ -295,6 +296,7 @@ public class NoteDAO {
         }
     }
 
+    // Inserts a new version of a note
     public void insertNote(Note note) throws SQLException {
         String query = "INSERT INTO note_versions "+
         "(note_id, version, content, data_created, modified_at, modified_by) " +
@@ -309,6 +311,36 @@ public class NoteDAO {
             stmt.setInt(6, note.getLastModifiedBy());
             
             stmt.executeUpdate();
+        }
+    }
+
+    // Lock/Unlock a note's to write lock
+    public void lockNote(int note_id, boolean lock) throws SQLException {
+        String query = "UPDATE notes SET write_lock = ? WHERE note_id = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setBoolean(1, lock);
+            stmt.setInt(2, note_id);
+            stmt.executeUpdate();
+        }
+
+    }
+
+    // Checks if a note is locked
+    public boolean isLocked(int note_id) throws SQLException {
+        String query = "SELECT write_lock FROM notes WHERE note_id = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, note_id);
+
+            try (ResultSet rs = stmt.executeQuery()) { // Execute the query
+                if (rs.next()) { // Check if a result exists
+                    return rs.getBoolean("write_lock"); // Return the boolean value
+                } else {
+                    throw new SQLException("Note not found for ID: " + note_id);
+                }
+            }
         }
     }
 }
