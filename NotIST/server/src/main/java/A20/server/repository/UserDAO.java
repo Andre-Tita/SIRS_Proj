@@ -4,8 +4,6 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.checkerframework.checker.units.qual.s;
-
 import A20.server.model.User;
 
 public class UserDAO {

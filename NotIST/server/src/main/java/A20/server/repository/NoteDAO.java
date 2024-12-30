@@ -86,38 +86,49 @@ public class NoteDAO {
     }
 
     // Notes a certain user has access to
-    public List<String> getUsersAccessNotes(int user_id) throws SQLException {
-        String query1 = "SELECT DISTINCT n.title, n.owner_id " +
-                       "FROM notes n " +
-                       "WHERE n.owner_id = ?";
-        
-        String query2 = "SELECT DISTINCT n.title, al.user_id, al.user_role " +
-                       "FROM access_logs al " +
-                       "LEFT JOIN notes n ON n.note_id = al.note_id " +
-                       "WHERE al.user_id = ?";
+    public List<String> getUsersAccessNotes(int userId) throws SQLException {
+        // Query for notes where the user is the owner
+        String queryOwner = 
+            "SELECT n.title AS title, nv.version AS version " +
+            "FROM notes n " +
+            "LEFT JOIN note_versions nv ON n.note_id = nv.note_id " +
+            "WHERE n.owner_id = ? " +
+            "ORDER BY n.title, nv.version";
+
+        // Query for notes where the user has access via access_logs
+        String queryAccess = 
+            "SELECT n.title AS title, nv.version AS version, al.user_role AS user_role " +
+            "FROM access_logs al " +
+            "JOIN notes n ON al.note_id = n.note_id " +
+            "LEFT JOIN note_versions nv ON n.note_id = nv.note_id " +
+            "WHERE al.user_id = ? " +
+            "ORDER BY n.title, nv.version";
 
         List<String> notesTitles = new ArrayList<>();
+
         try (Connection conn = DatabaseConnector.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query1)) {
+             PreparedStatement stmtOwner = conn.prepareStatement(queryOwner);
+             PreparedStatement stmtAccess = conn.prepareStatement(queryAccess)) {
 
-            stmt.setInt(1, user_id);
-
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                String note = rs.getString("title") + " | w Role: OWNER";
-                notesTitles.add(note);
+            // Query for notes owned by the user
+            stmtOwner.setInt(1, userId);
+            try (ResultSet rs = stmtOwner.executeQuery()) {
+                while (rs.next()) {
+                    String title = rs.getString("title");
+                    int version = rs.getInt("version");
+                    notesTitles.add(title + " | Version: " + version + " | Role: OWNER");
+                }
             }
-        }
-
-        try (Connection conn = DatabaseConnector.getConnection();
-        PreparedStatement stmt = conn.prepareStatement(query2)){
             
-            stmt.setInt(1, user_id);
-
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                String note = rs.getString("title") + " | w Role: " + rs.getString("user_role");
-                notesTitles.add(note);
+            // Query for notes where the user has access
+            stmtAccess.setInt(1, userId);
+            try (ResultSet rs = stmtAccess.executeQuery()) {
+                while (rs.next()) {
+                    String title = rs.getString("title");
+                    int version = rs.getInt("version");
+                    String role = rs.getString("user_role");
+                    notesTitles.add(title + " | Version: " + version + " | Role: " + role);
+                }
             }
         }
 

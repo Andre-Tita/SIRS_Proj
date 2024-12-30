@@ -42,8 +42,7 @@ message LogoutResponse {
 }
 
 // Notes Operations
-// create a note operation
-
+// creates a note
 message NNoteRequest {
     string username = 1;
     string note = 2;
@@ -51,6 +50,7 @@ message NNoteRequest {
 
 message NNoteResponse {
     int32 ack = 1;
+    string note = 2;
 }
 
 // see my notes operation
@@ -73,18 +73,6 @@ message SNotesResponse {
     repeated string note_titles = 2;
 }
 
-// grant access to another user to see the note
-message GAccessRequest {
-    string username = 1;
-    string other_username = 2;
-    string title = 3;
-    string user_role = 4;
-}
-
-message GAccessResponse {
-    int32 ack = 1;
-}
-
 // read note operation
 message RNoteRequest {
     string username = 1;
@@ -94,7 +82,7 @@ message RNoteRequest {
 
 message RNoteResponse {
     int32 ack = 1;
-    string content = 2;
+    string note = 2;
 }
 
 // edit note operation phase 1, sends the note to the user
@@ -129,5 +117,4 @@ service NotIST {
     rpc rnote(RNoteRequest) returns (RNoteResponse);
     rpc enoteP1(ENotePhase1Request) returns (ENotePhase1Response);
     rpc enoteP2(ENotePhase2Request) returns (ENotePhase2Response);
-    rpc gaccess(GAccessRequest) returns (GAccessResponse);
 }

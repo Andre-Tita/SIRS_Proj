@@ -4,7 +4,6 @@ import io.grpc.stub.StreamObserver;
 
 import java.sql.SQLException;
 import java.util.List;
-import java.util.stream.Stream;
 
 import com.google.gson.*;
 
@@ -128,14 +127,13 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
             // Check if user exists and is logged in
             User user = userDAO.getUserByUsername(request.getUsername());
             
-            if (user == null) { 
+            if (user == null) {
                 // User doesn't exist
                 NNoteResponse response = NNoteResponse.newBuilder().setAck(1).build();
                 responseObserver.onNext(response);
                 responseObserver.onCompleted();
-            } else {
-                System.out.println("User exists !\n");
 
+            } else {
                 // Parse the JSON note content
                 Gson gson = new Gson();
                 JsonObject noteJson = gson.fromJson(request.getNote(), JsonObject.class);
@@ -149,21 +147,19 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     NNoteResponse response = NNoteResponse.newBuilder().setAck(2).build();
                     responseObserver.onNext(response);
                     responseObserver.onCompleted();
+
                 } else {
                     // Extract fields from note JSON
                     String content = noteJson.get("note").getAsString();
+                    
+                    // Add the new note to the database
+                    Note newNote = new Note(title, content, user.getUserId());
+                    noteDAO.addNote(newNote);
+                    Note note = noteDAO.getNoteByTitle(title);
+                    
                     JsonArray viewers = noteJson.getAsJsonArray("viewers");
                     JsonArray editors = noteJson.getAsJsonArray("editors");
 
-                    // Add the new note to the database
-                    Note newNote = new Note(title, content, user.getUserId());
-
-                    noteDAO.addNote(newNote);
-                    System.out.println("Note added !\n");
-                    Note note = noteDAO.getNoteByTitle(title);
-                    System.out.println("Got the note from db: ");
-                    System.out.println(note);
-                    
                     // Add viewer permissions
                     for (JsonElement other_user : viewers) {
                         try {
@@ -193,7 +189,16 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                         }
                     }
 
-                    NNoteResponse response = NNoteResponse.newBuilder().setAck(0).build();      // Success
+                    List<User> viewers_list = userDAO.getUsersByUserIds(noteDAO.getNoteViewers(note.getNoteId()));
+                    List<User> editors_list = userDAO.getUsersByUserIds(noteDAO.getNoteEditors(note.getNoteId()));
+
+                    for (User u : viewers_list) 
+                        note.addViewer(u);
+
+                    for (User u : editors_list)
+                        note.addEditor(u);
+
+                    NNoteResponse response = NNoteResponse.newBuilder().setAck(0).setNote(note.toJSON(user.getUsername()).toString()).build();      // Success
                     responseObserver.onNext(response);
                 }
             }
@@ -282,16 +287,22 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
                     // Checks if the user has permission to view the note
                     if (noteDAO.hasAccess(user.getUserId(), note.getTitle(), "VIEWER") || noteDAO.hasAccess(user.getUserId(), note.getTitle(), "EDITOR")) {
                         System.out.println("User has access!\n");
+
+                        /* 
+                        # MAY THE USER BE ABLE TO SEE WHO CAN VIEW AND WHO CAN EDIT ?
                         List<User> viewers = userDAO.getUsersByUserIds(noteDAO.getNoteViewers(note.getNoteId()));
                         List<User> editors = userDAO.getUsersByUserIds(noteDAO.getNoteEditors(note.getNoteId()));
 
                         for (User u : viewers) 
-                            note.addViewer(user);
+                            note.addViewer(u);
 
                         for (User u : editors)
-                            note.addEditor(user);
+                            note.addEditor(u);
+                        */
 
-                        RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setContent(note.getContent()).build(); // Success
+                        // Note -> JSON -> String
+                        String noteString = note.toJSON(userDAO.getUserByUserId(note.getOwnerId()).getUsername()).toString();
+                        RNoteResponse response = RNoteResponse.newBuilder().setAck(0).setNote(noteString).build(); // Success
                         responseObserver .onNext(response);
                     } else {
                         RNoteResponse response = RNoteResponse.newBuilder().setAck(3).build(); // Failure

@@ -2,8 +2,6 @@ package A20.client;
 
 import A20.*;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.StatusRuntimeException;
 import io.grpc.netty.*;
 import io.netty.handler.ssl.SslContext;
 
@@ -22,7 +20,8 @@ public class ClientMain {
 	private static final String LOGOUT = "logout";              // logout
     private static final String EXIT = "exit";                  // exit the client app
 
-	private static final String NEW_NOTE = "nnote";             // create a note
+	private static final String NEW_NOTE = "nnote";             // create's a note
+    private static final String ADD_NOTE = "anote";             // sends a note already created locally
 	private static final String READ_NOTE = "rnote";            // read a note
     private static final String EDIT_NOTE = "enote";            // edit a note
 	private static final String SEE_NOTES = "snotes";           // show the notes and note's ids that the user has access
@@ -101,6 +100,7 @@ public class ClientMain {
     // Function to create a "mini-note"
     private JsonObject createMiniNote(JsonObject note, boolean o) {
         JsonObject miniNote = new JsonObject();
+        miniNote.addProperty("title", note.get("title").getAsString());
         miniNote.addProperty("note", note.get("note").getAsString());
 
         if (o) {
@@ -111,6 +111,7 @@ public class ClientMain {
         return miniNote;
     }
 
+    // Function to edit the note
     private void edit_note(String noteToString) {
         String tmpPath = "src/main/java/A20/client/editable.json";
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -131,9 +132,9 @@ public class ClientMain {
             // Open file in the default text editor
             System.out.println("Opening: " + noteJson.get("title").getAsString());
             ProcessBuilder processBuilder = new ProcessBuilder("code", tmpPath);   // Code must have auto-save disabled !
-            Process process = processBuilder.start();
+            processBuilder.start();
 
-            // Wait for the editor to close
+            // Wait for the editor to save
             File editableFile = new File(tmpPath);
             long lastModified = editableFile.lastModified();
 
@@ -274,26 +275,26 @@ public class ClientMain {
         }
     }
     
-    private void nnote(String filename) {
+    private void anote(String filename) {
         String filepath = "src/main/java/A20/client/";
         
         try  (FileReader fileReader = new FileReader(filepath + filename)) {
             
             // Validate JSON structure
             Gson gson = new Gson();
-            JsonObject jsonObject = gson.fromJson(fileReader, JsonObject.class);
+            JsonObject noteJson = gson.fromJson(fileReader, JsonObject.class);
     
             // Verify required fields exist
-            if (!jsonObject.has("id") || !jsonObject.has("title") || !jsonObject.has("note")) {
-                System.err.println("Invalid JSON structure. Required fields: id, title, note.");
+            if (!noteJson.has("title") || !noteJson.has("note")) {
+                System.err.println("Invalid JSON structure. Required fields: title, note.");
                 return;
             }
 
-            System.out.println(jsonObject.toString());
+            System.out.println(noteJson.toString());
 
             NNoteRequest request = NNoteRequest.newBuilder()
             .setUsername(this.username)
-            .setNote(jsonObject.toString()) // Sending JSON as string
+            .setNote(noteJson.toString()) // Sending JSON as string
             .build();
 
             NNoteResponse response = stub.nnote(request);
@@ -330,6 +331,117 @@ public class ClientMain {
             System.out.println("Invalid JSON content: " + e.getMessage());
             return;
         }
+    }
+
+    private void nnote () {
+        JsonObject noteJson = new JsonObject();
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+
+        // Fields with empty values
+        noteJson.addProperty("title", "");
+        noteJson.addProperty("note", "");
+
+        // Editors array is empty
+        JsonArray editors = new JsonArray();
+        noteJson.add("editors", editors);
+
+        // Viewers array is empty
+        JsonArray viewers = new JsonArray();
+        noteJson.add("viewers", viewers);
+
+        String tmpPath = "src/main/java/A20/client/editable.json";
+
+        // Writes and creates a temporary file for the user to fill
+        try (FileWriter fileWriter = new FileWriter(tmpPath)) {
+            gson.toJson(noteJson, fileWriter);
+        } catch (IOException e) {
+            System.err.println("Error creating file: " + e.getMessage());
+            return;
+        }
+
+        System.out.println("Fill the given fields.");
+
+        // Code to open vscode to create the note
+        try {
+            // Open file in the default text editor
+            ProcessBuilder processBuilder = new ProcessBuilder("code", tmpPath);   // Code must have auto-save disabled !
+            processBuilder.start();
+
+            // Wait for the editor to close
+            File editableFile = new File(tmpPath);
+            long lastModified = editableFile.lastModified();
+
+            while (true) {
+                if (editableFile.lastModified() > lastModified) {
+                    System.out.println("File has been modified.");
+                    break;
+                }
+                Thread.sleep(1000); // Check every second
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error opening editor: " + e.getMessage());
+            return;
+        }
+
+        try  (FileReader fileReader = new FileReader(tmpPath)) {
+            JsonObject noteRead = gson.fromJson(fileReader, JsonObject.class);
+            System.out.println("New read: \n" + noteRead.toString());
+
+            String title = noteRead.has("title") ? noteRead.get("title").getAsString() : "";
+            String note = noteRead.has("note") ? noteRead.get("note").getAsString() : "";
+
+            if (title.isEmpty() || note.isEmpty()) {
+                System.out.println("Error: 'title' and 'note' fields must be filled.");
+                deleteFile(tmpPath);
+                return;
+            }
+
+            // Send the note to the server
+            NNoteRequest request = NNoteRequest.newBuilder().setUsername(this.username).setNote(noteRead.toString()).build();
+            NNoteResponse response = stub.nnote(request);
+            switch (response.getAck()) {
+                case 0:
+                    System.out.println("Note created with success.");
+
+                    //Create another file named with the title and with the note itself
+                    noteJson = JsonParser.parseString(response.getNote()).getAsJsonObject();
+                    String newFilePath = "src/main/java/A20/client/" + noteJson.get("title").getAsString() + ".txt";
+
+                    // Copy the original file to the new file
+                    try (FileWriter fileWriter = new FileWriter(newFilePath)) {
+                        gson.toJson(noteJson, fileWriter);
+                    } catch (IOException e) {
+                        System.err.println("Error copying file: " + e.getMessage());
+                    }
+                    break;
+                
+                case 1:
+                    debug(USER_NOT_EXIST);
+                    break;
+
+                case 2:
+                    debug("ERROR: A Note with that title already exists.");
+                    break;
+
+                case -1:
+                    debug(SQL_ERROR);
+                    break;
+            
+                default:
+                    debug(UNKNOWN);
+                    break;
+            }
+
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+            return;
+        } catch (JsonSyntaxException e) {
+            System.out.println("Invalid JSON content: " + e.getMessage());
+            return;
+        }
+
+        deleteFile(tmpPath);
+
     }
 
     private void mnotes() {
@@ -388,7 +500,9 @@ public class ClientMain {
         RNoteResponse response = stub.rnote(request);
         switch (response.getAck()) {
             case 0:
-                System.out.println(title + "\n" + response.getContent() + "\n");                
+                JsonObject noteJson = JsonParser.parseString(response.getNote()).getAsJsonObject();
+                Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                System.out.println(gson.toJson(noteJson));                
                 break;
             
             case 1:
@@ -489,13 +603,22 @@ public class ClientMain {
                     } else { debug(NOT_LOGGEDIN); }
                     break;
 
-                case NEW_NOTE:
+                case ADD_NOTE:
                     if(this.loggedin) {
                         if (split.length == 2) {
-                            this.nnote(split[1]);
+                            this.anote(split[1]);
                         } else { debug(FORMAT_ERROR); }
                     } else { debug(NOT_LOGGEDIN); }
                     break;
+                
+                case NEW_NOTE:
+                    if(this.loggedin) {
+                        if (split.length == 1) {
+                            this.nnote();
+                        } else { debug(FORMAT_ERROR); }
+                    } else { debug(NOT_LOGGEDIN); }
+                    break;
+                    
 
                 case MY_NOTES:
                     if(this.loggedin) {
@@ -540,7 +663,8 @@ public class ClientMain {
                     if (this.loggedin) {
                         System.out.println("Available commands:\n" +
                         "LOGOUT: logout\n" +
-                        "NEW NOTE: nnote [filepath]\n" +
+                        "ADD NOTE: anote [filepath]\n" +
+                        "NEW NOTE: nnote" +
                         "READ NOTE: rnote [title] [version]\n" +
                         "EDIT NOTE: enote [title]\n" +
                         "SEE NOTES: snotes\n" +
@@ -561,6 +685,7 @@ public class ClientMain {
             }
         }
 
+        scanner.close();
         this.endComms();
     }
 }
