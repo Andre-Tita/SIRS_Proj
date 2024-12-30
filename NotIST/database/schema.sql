@@ -9,7 +9,6 @@ CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    public_key VARCHAR(255) NOT NULL,
     is_loggedin BOOLEAN
 );
 
@@ -37,17 +36,17 @@ CREATE TABLE note_versions (
 -- Create Access Logs Table, so we know which user has access to which note and what type of access
 CREATE TABLE access_logs (
     log_id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(user_id),
-    note_id INT REFERENCES notes(note_id),
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    note_id INT REFERENCES notes(note_id) ON DELETE CASCADE,
     owner_id INT,
     user_role VARCHAR(50) NOT NULL,
     action_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Encryption Keys Table (Optional) ??
+-- Encryption Keys Table
 CREATE TABLE encryption_keys (
     key_id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(user_id),
-    key_value BYTEA,
-    data_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    note_id INT REFERENCES notes(note_id),
+    hmac_key BYTEA,
+    iv BYTEA
 );

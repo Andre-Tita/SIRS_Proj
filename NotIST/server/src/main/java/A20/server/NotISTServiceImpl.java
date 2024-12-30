@@ -63,7 +63,7 @@ public class NotISTServiceImpl extends NotISTGrpc.NotISTImplBase {
 
             if (existingUser == null) {
                 // Add new user
-                User newUser = new User(request.getUsername(), request.getPassword(), request.getPubKey()); // #Replace with appropriate public key
+                User newUser = new User(request.getUsername(), request.getPassword());
                 userDAO.addUser(newUser);
                 SignUpResponse response = SignUpResponse.newBuilder().setAck(0).setUserId((userDAO.getUserByUsername(request.getUsername())).getUserId()).build(); // Success
                 responseObserver.onNext(response);

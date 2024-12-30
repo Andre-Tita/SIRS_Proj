@@ -57,10 +57,18 @@
             <artifactId>contract</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+
+        <!-- Dependency to util module -->
+        <dependency>
+            <groupId>A20</groupId>
+            <artifactId>notist-util</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
     
     </dependencies>
 
     <build>
+        <sourceDirectory>src/main/java</sourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

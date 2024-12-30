@@ -9,13 +9,12 @@ import A20.server.model.User;
 public class UserDAO {
 
     public void addUser(User user) throws SQLException {
-        String query = "INSERT INTO users (username, password_hash, public_key, is_loggedin) VALUES (?, ?, ?, ?)";
+        String query = "INSERT INTO users (username, password_hash, is_loggedin) VALUES (?, ?, ?)";
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, user.getUsername());
             stmt.setString(2, user.getPassword());
-            stmt.setString(3, user.getPublicKey());
-            stmt.setBoolean(4, true);
+            stmt.setBoolean(3, true);
             stmt.executeUpdate();
         }
     }
@@ -35,8 +34,7 @@ public class UserDAO {
                 return new User(
                     rs.getInt("user_id"),
                     rs.getString("username"),
-                    rs.getString("password_hash"),
-                    rs.getString("public_key")
+                    rs.getString("password_hash")
                 );
             }
         }
@@ -123,7 +121,6 @@ public class UserDAO {
         }
     }
 
-    
     public boolean isUserLoggedIn(int user_id) throws SQLException {
         String query = "SELECT * FROM users WHERE user_id = ? AND is_loggedin = true";
 

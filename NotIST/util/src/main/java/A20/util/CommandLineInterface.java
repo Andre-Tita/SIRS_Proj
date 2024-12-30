@@ -1,4 +1,4 @@
-package pt.tecnico;
+package A20.util;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;

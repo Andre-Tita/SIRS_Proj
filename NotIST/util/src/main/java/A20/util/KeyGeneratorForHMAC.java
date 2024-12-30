@@ -1,4 +1,4 @@
-package pt.tecnico;
+package A20.util;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -14,8 +14,11 @@ public class KeyGeneratorForHMAC {
             return;
         }
 
-        String outputFile = args[0];
+        generateHMAC(args[0]);
+    }
 
+    // Function to generate the HMAC
+    public static void generateHMAC(String outputFile) {
         try {
             // Step 1: Generate a new HMAC key
             KeyGenerator keyGen = KeyGenerator.getInstance("HmacSHA256");
@@ -34,5 +37,5 @@ public class KeyGeneratorForHMAC {
             System.err.println("Error generating HMAC key: " + e.getMessage());
             e.printStackTrace();
         }
-    }
+    }   
 }

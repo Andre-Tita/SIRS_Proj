@@ -1,6 +1,7 @@
 package A20.client;
 
 import A20.*;
+import A20.util.*;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.*;
 import io.netty.handler.ssl.SslContext;
@@ -40,11 +41,10 @@ public class ClientMain {
     
     NotISTGrpc.NotISTBlockingStub stub;
     ManagedChannel channel;
+    KeyGeneratorForHMAC gen;
 
     private String username;
     private boolean loggedin;
-    private String pubKey;
-    private Map<Integer, String> client_keys = new HashMap<>();         // # Change String to public key
 
     public static void main(String[] args) {
 		// Main loop
@@ -196,7 +196,6 @@ public class ClientMain {
     }
 
     // Main functions
-
 	private void login(String username, String password) {
         LoginRequest request = LoginRequest.newBuilder().setUsername(username).setPassword(password).build();
         LoginResponse response = stub.login(request);
@@ -205,7 +204,6 @@ public class ClientMain {
                 System.out.println("Logged in with success.");
                 this.username = username;
                 this.loggedin = true;
-                this.client_keys.put(response.getUserId(), this.pubKey);
                 break;
 
             case 1:
@@ -227,14 +225,13 @@ public class ClientMain {
     }
 
     private void signup(String username, String new_password) {
-        SignUpRequest request = SignUpRequest.newBuilder().setUsername(username).setPassword(new_password).setPubKey("").build();
+        SignUpRequest request = SignUpRequest.newBuilder().setUsername(username).setPassword(new_password).build();
         SignUpResponse response = stub.signup(request);
         switch (response.getAck()) {
             case 0:
                 System.out.println("User registered with success.");
                 this.username = username;
                 this.loggedin = true;
-                this.client_keys.put(response.getUserId(), this.pubKey);
                 break;
 
             case 1:
@@ -244,7 +241,7 @@ public class ClientMain {
             case -1:
                 debug(SQL_ERROR);
                 break;
-            
+
             default:
                 debug(UNKNOWN);
                 break;
@@ -405,7 +402,7 @@ public class ClientMain {
 
                     //Create another file named with the title and with the note itself
                     noteJson = JsonParser.parseString(response.getNote()).getAsJsonObject();
-                    String newFilePath = "src/main/java/A20/client/" + noteJson.get("title").getAsString() + ".txt";
+                    String newFilePath = "src/main/java/A20/client/" + noteJson.get("title").getAsString() + ".json";
 
                     // Copy the original file to the new file
                     try (FileWriter fileWriter = new FileWriter(newFilePath)) {
@@ -577,12 +574,10 @@ public class ClientMain {
 
                 case LOGIN:
                     if (split.length == 3) {
-                        
                         if (this.loggedin) {
                             debug(ALR_LOGGEDIN);
                             break;
                         } this.login(split[1], split[2]);
-
                     } else { debug(FORMAT_ERROR); }
                     break;
 
