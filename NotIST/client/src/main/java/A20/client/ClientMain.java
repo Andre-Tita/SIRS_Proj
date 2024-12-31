@@ -1,7 +1,9 @@
 package A20.client;
 
 import A20.*;
-import A20.util.*;
+import A20.util.CommandLineInterface;
+import A20.util.KeyGeneratorForAES;
+import A20.util.KeyGeneratorForHMAC;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.*;
 import io.netty.handler.ssl.SslContext;
@@ -289,6 +291,8 @@ public class ClientMain {
 
             System.out.println(noteJson.toString());
 
+            // #Encrypt here
+
             NNoteRequest request = NNoteRequest.newBuilder()
             .setUsername(this.username)
             .setNote(noteJson.toString()) // Sending JSON as string
@@ -392,6 +396,8 @@ public class ClientMain {
                 deleteFile(tmpPath);
                 return;
             }
+
+            // #Encrypt here
 
             // Send the note to the server
             NNoteRequest request = NNoteRequest.newBuilder().setUsername(this.username).setNote(noteRead.toString()).build();
