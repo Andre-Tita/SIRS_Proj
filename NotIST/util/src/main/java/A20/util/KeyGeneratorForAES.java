@@ -2,12 +2,13 @@ package A20.util;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Base64;
 
 public class KeyGeneratorForAES {
     // Function to generate the AES
-    public static void generateAESKey(String outputFile) {
+    public void generateAESKey(String outputFile) {
         try {
             // Initialize AES key generator
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
@@ -20,7 +21,7 @@ public class KeyGeneratorForAES {
             // Write the Base64-encoded key to the specified output file
             Files.write(Paths.get(outputFile), aesKeyBase64.getBytes());
     
-            System.out.println("AES key generated and saved to: " + outputFile);
+            System.out.println("SecretKey generated.");
     
         } catch (Exception e) {
             System.err.println("Error generating AES key: " + e.getMessage());

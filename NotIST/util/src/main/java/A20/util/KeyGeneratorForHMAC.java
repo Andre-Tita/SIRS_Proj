@@ -7,18 +7,8 @@ import java.nio.file.Paths;
 import java.util.Base64;
 
 public class KeyGeneratorForHMAC {
-
-    public static void main(String[] args) {
-        if (args.length != 1) {
-            System.out.println("Usage: java KeyGeneratorForHMAC <output-file>");
-            return;
-        }
-
-        generateHMAC(args[0]);
-    }
-
     // Function to generate the HMAC
-    public static void generateHMAC(String outputFile) {
+    public void generateHMAC(String outputFile) {
         try {
             // Step 1: Generate a new HMAC key
             KeyGenerator keyGen = KeyGenerator.getInstance("HmacSHA256");
@@ -31,7 +21,7 @@ public class KeyGeneratorForHMAC {
             // Step 3: Write the key to the specified output file
             Files.write(Paths.get(outputFile), hmacKeyBase64.getBytes());
 
-            System.out.println("HMAC key generated and saved to: " + outputFile);
+            System.out.println("HMAC key generated.");
 
         } catch (Exception e) {
             System.err.println("Error generating HMAC key: " + e.getMessage());

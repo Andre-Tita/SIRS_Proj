@@ -16,11 +16,13 @@ public class Note {
     private int last_modified_by;
     private int version;
     private int owner_id;
+    private String hmac;
+    private String iv;
     private List<User> viewers;
     private List<User> editors;
 
     // Firstly created
-    public Note(String title, String content, int owner_id) {
+    public Note(String title, String content, int owner_id, String hmac, String iv) {
         this.title = title;
         this.content = content;
         this.data_created = LocalDateTime.now();
@@ -28,12 +30,14 @@ public class Note {
         this.last_modified_by = owner_id;
         this.version = 1;
         this.owner_id = owner_id;
+        this.hmac = hmac;
+        this.iv = iv;
         this.viewers = new ArrayList<>();
         this.editors = new ArrayList<>();
     }
 
     // When edited
-    public Note(int id, String title, String content, String data_created, int last_modified_by, int version, int owner_id) {
+    public Note(int id, String title, String content, String data_created, int last_modified_by, int version, int owner_id, String hmac, String iv) {
         this.id = id;
         this.title = title;
         this.content = content;
@@ -42,12 +46,14 @@ public class Note {
         this.last_modified_by = last_modified_by; 
         this.version = version;
         this.owner_id = owner_id;
+        this.hmac = hmac;
+        this.iv = iv;
         this.viewers = new ArrayList<>();
         this.editors = new ArrayList<>();
     }
 
     // To receive from db
-    public Note(int id, String title, String content, LocalDateTime data_created, LocalDateTime date_modified, int last_modified_by, int version, int owner_id) {
+    public Note(int id, String title, String content, LocalDateTime data_created, LocalDateTime date_modified, int last_modified_by, int version, int owner_id, String hmac, String iv) {
         this.id = id;
         this.title = title;
         this.content = content;
@@ -56,6 +62,8 @@ public class Note {
         this.last_modified_by = last_modified_by; 
         this.version = version;
         this.owner_id = owner_id;
+        this.hmac = hmac;
+        this.iv = iv;
         this.viewers = new ArrayList<>();
         this.editors = new ArrayList<>();
     }
@@ -68,7 +76,6 @@ public class Note {
     public void setDateModified() { this.date_modified = LocalDateTime.now(); }
     
     // Getters
-    
     public int getNoteId() { return this.id; }
     public String getTitle() { return this.title; }
     public String getContent() { return this.content; }
@@ -79,6 +86,8 @@ public class Note {
     public int getLastModifiedBy() { return this.last_modified_by; }
     public int getVersion() { return this.version; }
     public int getOwnerId() { return this.owner_id; }
+    public String getHmac() { return this.hmac; }
+    public String getIv() { return this.iv; }
     
     // Others
     public void addViewer(User u) { this.viewers.add(u); }
@@ -151,6 +160,8 @@ public class Note {
         // Add arrays to noteJson
         noteJson.add("editors", editorsArray);
         noteJson.add("viewers", viewersArray);
+        noteJson.addProperty("iv", this.iv);
+        noteJson.addProperty("hmac", this.hmac);
     
         return noteJson;
     }

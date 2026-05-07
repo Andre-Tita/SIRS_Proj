@@ -8,19 +8,22 @@ import A20.server.model.Note;
 public class NoteDAO {
 
     // Create a note
-    public void addNote(Note note) throws SQLException {
+    public void addNote(Note note, String secretKey, String hmacKey) throws SQLException {
         String noteQuery = "INSERT INTO notes (title, owner_id, data_created, write_lock) VALUES (?, ?, ?, FALSE) " +
                            "ON CONFLICT (title) DO NOTHING RETURNING note_id";
-        String versionQuery = "INSERT INTO note_versions (note_id, version, content, data_created, modified_at, modified_by) " +
-                              "VALUES (?, ?, ?, ?, ?, ?)";
+        String versionQuery = "INSERT INTO note_versions (note_id, version, content, data_created, modified_at, modified_by, hmac, iv) " +
+                              "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        String keyQuery = "INSERT INTO encryption_keys (note_id, version, secret_key, hmac_key) VALUES (?, ?, ?, ?)";
     
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement noteStmt = conn.prepareStatement(noteQuery, Statement.RETURN_GENERATED_KEYS);
-             PreparedStatement versionStmt = conn.prepareStatement(versionQuery)) {
-    
+             PreparedStatement versionStmt = conn.prepareStatement(versionQuery);
+             PreparedStatement keyStmt = conn.prepareStatement(keyQuery)) {
+
             // Start a transaction
             conn.setAutoCommit(false);
-    
+
             try {
                 // Insert the note metadata
                 noteStmt.setString(1, note.getTitle());
@@ -69,8 +72,17 @@ public class NoteDAO {
                 versionStmt.setTimestamp(4, Timestamp.valueOf(note.getDataCreated()));
                 versionStmt.setTimestamp(5, Timestamp.valueOf(note.getDateModified()));
                 versionStmt.setInt(6, note.getLastModifiedBy());
+                versionStmt.setString(7, note.getHmac());
+                versionStmt.setString(8, note.getIv());
                 versionStmt.executeUpdate();
     
+                // Insert the encryption keys
+                keyStmt.setInt(1, noteId);
+                keyStmt.setInt(2, note.getVersion());
+                keyStmt.setString(3, secretKey);
+                keyStmt.setString(4, hmacKey);
+                keyStmt.executeUpdate();
+
                 // Commit the transaction
                 conn.commit();
     
@@ -176,7 +188,9 @@ public class NoteDAO {
                     (rs.getTimestamp("modified_at")).toLocalDateTime(),
                     rs.getInt("modified_by"),
                     rs.getInt("version"),
-                    rs.getInt("owner_id")
+                    rs.getInt("owner_id"),
+                    rs.getString("hmac"),
+                    rs.getString("iv")
                 );
             }
         }
@@ -185,7 +199,7 @@ public class NoteDAO {
 
     // Returns the note with that title and version
     public Note getNoteByTitleAndVersion (String title, int version) throws SQLException {
-        String query = "SELECT nv.version_id, nv.content, nv.version, n.note_id, n.owner_id, n.title, n.data_created, nv.modified_at, nv.modified_by " +
+        String query = "SELECT nv.version_id, nv.content, nv.version, n.note_id, n.owner_id, n.title, n.data_created, nv.modified_at, nv.modified_by, nv.hmac, nv.iv " +
                         "FROM notes n " +
                         "JOIN note_versions nv ON n.note_id = nv.note_id " +
                         "WHERE n.title = ? AND nv.version = ?";
@@ -206,7 +220,9 @@ public class NoteDAO {
                     rs.getTimestamp("modified_at").toLocalDateTime(),
                     rs.getInt("modified_by"),
                     rs.getInt("version"),
-                    rs.getInt("owner_id")
+                    rs.getInt("owner_id"),
+                    rs.getString("hmac"),
+                    rs.getString("iv")
                 );
             }
         }
@@ -308,20 +324,44 @@ public class NoteDAO {
     }
 
     // Inserts a new version of a note
-    public void insertNote(Note note) throws SQLException {
+    public void insertNote(Note note, String secretKey, String hmacKey) throws SQLException {
         String query = "INSERT INTO note_versions "+
-        "(note_id, version, content, data_created, modified_at, modified_by) " +
-        "VALUES (?, ?, ?, ?, ?, ?)";
+        "(note_id, version, content, data_created, modified_at, modified_by, hmac, iv) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        String query2 = "INSERT INTO encryption_keys (note_id, version, secret_key, hmac_key) VALUES (?, ?, ?, ?)";
+
         try (Connection conn = DatabaseConnector.getConnection();
-        PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setInt(1, note.getNoteId());
-            stmt.setInt(2, note.getVersion());
-            stmt.setString(3, note.getContent());
-            stmt.setTimestamp(4, Timestamp.valueOf(note.getDataCreated()));
-            stmt.setTimestamp(5, Timestamp.valueOf(note.getDateModified()));
-            stmt.setInt(6, note.getLastModifiedBy());
+        PreparedStatement stmt1 = conn.prepareStatement(query);
+        PreparedStatement stmt2 = conn.prepareStatement(query2)) {
             
-            stmt.executeUpdate();
+            conn.setAutoCommit(false);
+            try {
+                stmt1.setInt(1, note.getNoteId());
+                stmt1.setInt(2, note.getVersion());
+                stmt1.setString(3, note.getContent());
+                stmt1.setTimestamp(4, Timestamp.valueOf(note.getDataCreated()));
+                stmt1.setTimestamp(5, Timestamp.valueOf(note.getDateModified()));
+                stmt1.setInt(6, note.getLastModifiedBy());
+                stmt1.setString(7, note.getHmac());
+                stmt1.setString(8, note.getIv());
+                stmt1.executeUpdate();
+
+                // Insert the encryption keys
+                stmt2.setInt(1, note.getNoteId());
+                stmt2.setInt(2, note.getVersion());
+                stmt2.setString(3, secretKey);
+                stmt2.setString(4, hmacKey);
+                stmt2.executeUpdate();
+
+            } catch (SQLException e) {
+                // Rollback in case of an error
+                conn.rollback();
+                throw e;
+            } finally {
+                // Reset auto-commit to true (important for subsequent database operations)
+                conn.setAutoCommit(true);
+            }
         }
     }
 
@@ -354,4 +394,37 @@ public class NoteDAO {
             }
         }
     }
+
+    public String getNoteHmacKey(int note_id, int version) throws SQLException {
+        String query = "SELECT hmac_key FROM encryption_keys WHERE note_id = ? AND version = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, note_id);
+            stmt.setInt(2, version);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("hmac_key");
+                } else {
+                    throw new SQLException("HMAC key not found for note_id: " + note_id);
+                }
+            }
+        }
+    }
+    
+    public String getNoteSecretKey(int note_id, int version) throws SQLException {
+        String query = "SELECT secret_key FROM encryption_keys WHERE note_id = ? AND version = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, note_id);
+            stmt.setInt(2, version);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("secret_key");
+                } else {
+                    throw new SQLException("Secret_key not found for note_id: " + note_id + " | Version: " + version);
+                }
+            }
+        }
+    }
+    
 }

@@ -11,6 +11,7 @@ option java_multiple_files = true;
 message SignUpRequest {
     string username = 1;
     string password = 2;
+    string pubKey = 3;
 }
 
 message SignUpResponse {
@@ -45,11 +46,12 @@ message LogoutResponse {
 message NNoteRequest {
     string username = 1;
     string note = 2;
+    string secretKey = 3;
+    string hmacKey = 4;
 }
 
 message NNoteResponse {
     int32 ack = 1;
-    string note = 2;
 }
 
 // see my notes operation
@@ -82,6 +84,8 @@ message RNoteRequest {
 message RNoteResponse {
     int32 ack = 1;
     string note = 2;
+    string secretKey = 3;
+    string hmacKey = 4;
 }
 
 // edit note operation phase 1, sends the note to the user
@@ -93,12 +97,16 @@ message ENotePhase1Request {
 message ENotePhase1Response {
     int32 ack = 1;
     string note = 2;
+    string secretKey = 3;
+    string hmacKey = 4; 
 }
 
 // edit note phase 2, receives the edited note from the user
 message ENotePhase2Request {
     string username = 1;
     string note = 2;
+    string secretKey = 3;
+    string hmacKey = 4;
 }
 
 message ENotePhase2Response {

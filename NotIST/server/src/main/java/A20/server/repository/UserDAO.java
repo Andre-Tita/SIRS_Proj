@@ -9,12 +9,13 @@ import A20.server.model.User;
 public class UserDAO {
 
     public void addUser(User user) throws SQLException {
-        String query = "INSERT INTO users (username, password_hash, is_loggedin) VALUES (?, ?, ?)";
+        String query = "INSERT INTO users (username, password_hash, publicKey, is_loggedin) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, user.getUsername());
             stmt.setString(2, user.getPassword());
-            stmt.setBoolean(3, true);
+            stmt.setString(3, user.getPubKey());
+            stmt.setBoolean(4, true);
             stmt.executeUpdate();
         }
     }
@@ -97,6 +98,20 @@ public class UserDAO {
     
             stmt.setInt(1, user_id);
             stmt.executeUpdate();
+        }
+    }
+
+    public String getUserPubKey(int user_id) throws SQLException {
+        String query = "SELECT publicKey FROM users WHERE user_id = ?";
+
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+    
+            stmt.setInt(1, user_id);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) { return rs.getString("publicKey"); }
+            else { return null; }
         }
     }
     

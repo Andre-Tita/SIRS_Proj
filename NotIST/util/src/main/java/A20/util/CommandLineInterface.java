@@ -1,14 +1,12 @@
 package A20.util;
 
 import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import com.google.gson.*;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
@@ -70,8 +68,14 @@ public class CommandLineInterface {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(hmacKey);
 
+            // Create a new JSON with only the necessary json elements to hmac calculation 
+            JsonObject jsonObject = new JsonObject();
+            jsonObject.addProperty("title", originalJson.get("title").getAsString());
+            jsonObject.addProperty("note", originalJson.get("note").getAsString());
+            jsonObject.addProperty("iv", originalJson.get("iv").getAsString());
+
             // Convert the JSON (excluding HMAC) to a string for HMAC calculation
-            String jsonWithoutHmac = originalJson.toString();
+            String jsonWithoutHmac = jsonObject.toString();
             byte[] hmacBytes = mac.doFinal(jsonWithoutHmac.getBytes("UTF-8"));
             
             // Base64-encode the HMAC and add it to the JSON
@@ -83,8 +87,6 @@ public class CommandLineInterface {
                 Gson gson = new GsonBuilder().setPrettyPrinting().create();
                 gson.toJson(originalJson, fileWriter);
             }
-
-            System.out.println("Document encrypted and written to: " + outputFile);
 
         } catch (Exception e) {
             System.err.println("Error during encryption: " + e.getMessage());
@@ -135,8 +137,16 @@ public class CommandLineInterface {
             // Step 4: Extract the HMAC from the JSON
             String providedHmac = jsonObject.get("hmac").getAsString();
 
-            // Step 5: Remove the HMAC field from the JSON object
+            // Step 5: Remove the fields from the JSON object that are note required for the HMAC calculation
             jsonObject.remove("hmac");
+            jsonObject.remove("id");
+            jsonObject.remove("data_created");
+            jsonObject.remove("date_modified");
+            jsonObject.remove("last_modified_by");
+            jsonObject.remove("version");
+            jsonObject.remove("owner");
+            jsonObject.remove("editors");
+            jsonObject.remove("viewers");
 
             // Step 6: Serialize JSON without HMAC
             String jsonWithoutHmac = jsonObject.toString();
@@ -211,8 +221,6 @@ public class CommandLineInterface {
                 Gson gson = new GsonBuilder().setPrettyPrinting().create();
                 gson.toJson(encryptedObject, fileWriter);
             }
-
-            System.out.println("Document decrypted and written to: " + outputFile);
 
         } catch (SecurityException e) {
             System.err.println("Integrity check failed: " + e.getMessage());

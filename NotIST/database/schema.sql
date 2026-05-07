@@ -9,6 +9,7 @@ CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    publicKey TEXT,
     is_loggedin BOOLEAN
 );
 
@@ -30,6 +31,8 @@ CREATE TABLE note_versions (
     data_created TIMESTAMP,
     modified_at TIMESTAMP,
     modified_by INT NOT NULL,
+    hmac VARCHAR(60),
+    iv VARCHAR(30),
     UNIQUE(note_id, version) -- Prevent duplicate versions
 );
 
@@ -47,6 +50,7 @@ CREATE TABLE access_logs (
 CREATE TABLE encryption_keys (
     key_id SERIAL PRIMARY KEY,
     note_id INT REFERENCES notes(note_id),
-    hmac_key BYTEA,
-    iv BYTEA
+    version INT,
+    secret_key TEXT,
+    hmac_key TEXT
 );

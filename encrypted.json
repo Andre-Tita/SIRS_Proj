@@ -1,0 +1,35 @@
+{
+  "id": 123,
+  "title": "Example Document",
+  "note": "RoO2DEzXAXgi+wauuE2CTNsxLSLSm9rbno5nq2NbXeG12HxI1EUqWavl8N0\u003d",
+  "data_created": "2022-01-01T12:00:00Z",
+  "date_modified": "2022-01-02T12:00:00Z",
+  "last_modified_by": 456,
+  "version": 3,
+  "owner": {
+    "id": 456,
+    "username": "john"
+  },
+  "editors": [
+    {
+      "id": 789,
+      "username": "jane"
+    },
+    {
+      "id": 1011,
+      "username": "bob"
+    }
+  ],
+  "viewers": [
+    {
+      "id": 1213,
+      "username": "alice"
+    },
+    {
+      "id": 1415,
+      "username": "charlie"
+    }
+  ],
+  "iv": "j+tzNrxos2gRQ6N7",
+  "hmac": "TRQelr0R7t8V6NWek/nnaoBNfqbF572qSE+9xTYjxqM\u003d"
+}

@@ -32,7 +32,7 @@ public class NotISTMain {
             e.printStackTrace();
         }
 
-        System.out.println("Server started with TLS on port " + port);
+        System.out.println("Server started with TLS on port: " + port);
 
         server.awaitTermination();
     }
